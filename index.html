@@ -117,11 +117,11 @@ ul.rows li:first-child { border-top: 0; }
 .scan-top .count { font-size: 30px; }
 .viewport { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: #000; }
 .viewport video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.viewport canvas { display: none; }
-.guide { position: absolute; left: 6%; right: 6%; top: 50%; height: 26%; transform: translateY(-50%); border: 3px solid var(--accent); border-radius: 12px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.35); pointer-events: none; }
+.guide { position: absolute; left: 50%; top: 50%; width: 84%; aspect-ratio: 1; max-height: 92%; transform: translate(-50%, -50%); border: 3px solid var(--accent); border-radius: 12px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.35); pointer-events: none; }
 .guide.hit { border-color: #4CC38A; }
 .scan-bottom { padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 10px; }
 .scan-msg { margin: 0; font-size: 17px; min-height: 1.4em; }
+.scan-dbg { margin: 0; font-size: 12px; color: #6B7480; overflow-wrap: anywhere; }
 .scan-codes { margin: 0; font-family: var(--mono); font-size: 14px; color: #9AA3AF; overflow-wrap: anywhere; min-height: 1.4em; }
 .scanner .btn { background: #1C2027; color: #F1F3F5; border-color: #2E343D; }
 .scanner .slots span { background: #2E343D; }
@@ -136,6 +136,7 @@ ul.rows li:first-child { border-top: 0; }
       <span><strong id="sumTyres">0</strong> tyres</span>
       <span><strong id="sumKarts">0</strong> karts</span>
       <span class="badge" id="storeBadge">Saved on this phone</span>
+      <span class="badge">v2</span>
     </div>
   </header>
 
@@ -176,6 +177,9 @@ ul.rows li:first-child { border-top: 0; }
           <button type="button" class="btn" id="manualAdd">Add</button>
         </div>
       </div>
+      <button type="button" class="btn" id="photoBtn">Or take a photo of the sticker</button>
+      <p class="hint">A photo uses the iPhone camera at full quality, which helps when the live scanner can't focus.</p>
+      <input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
     </div>
 
     <div class="card">
@@ -224,7 +228,9 @@ ul.rows li:first-child { border-top: 0; }
     <div class="slots" id="scanSlots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
     <p class="scan-msg" id="scanMsg" role="status">Starting the camera…</p>
     <p class="scan-codes" id="scanCodes"></p>
+    <p class="scan-dbg" id="scanDbg"></p>
     <div class="actions">
+      <button type="button" class="btn" id="zoomBtn" hidden>Zoom</button>
       <button type="button" class="btn" id="torchBtn" hidden>Light on</button>
       <button type="button" class="btn" id="scanClose">Done</button>
     </div>
@@ -244,7 +250,6 @@ ul.rows li:first-child { border-top: 0; }
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 <script>
 (function () {
   "use strict";
@@ -252,8 +257,7 @@ ul.rows li:first-child { border-top: 0; }
   var LIST_KEY = "kart-tyres-v1";
   var DRAFT_KEY = "kart-tyres-draft-v1";
   var SET_SIZE = 4;
-  var READS_NEEDED = 3;      // identical reads in a row before a code is accepted
-  var MAX_ERROR = 0.2;       // reject shaky decodes
+  var READS_NEEDED = 2;      // identical reads in a row before a code is accepted
 
   var state = {
     items: new Map(),        // code -> {code, kart, ts}
@@ -523,8 +527,56 @@ ul.rows li:first-child { border-top: 0; }
     state.items.delete(t.code); persist(); renderAll();
   });
 
+  // ---------- barcode engine: zxing-cpp (WebAssembly) behind the BarcodeDetector interface ----------
+  var ENGINE_URLS = [
+    "https://cdn.jsdelivr.net/npm/barcode-detector@3.0.0/+esm",
+    "https://esm.sh/barcode-detector@3.0.0"
+  ];
+  var FORMATS = ["code_128", "code_39", "code_93", "codabar", "itf"];
+  var engine = { det: null, error: "", promise: null };
+
+  function loadEngine() {
+    if (engine.det) return Promise.resolve(engine.det);
+    if (engine.promise) return engine.promise;
+    engine.error = "";
+    engine.promise = (async function () {
+      var lastErr = null;
+      for (var i = 0; i < ENGINE_URLS.length; i++) {
+        try {
+          var m = await import(ENGINE_URLS[i]);
+          var det = new m.BarcodeDetector({ formats: FORMATS });
+          await det.detect(new ImageData(16, 16));   // fetches the decoder now, not on the first tyre
+          engine.det = det;
+          return det;
+        } catch (e) { lastErr = e; }
+      }
+      engine.promise = null;
+      engine.error = String((lastErr && lastErr.message) || lastErr || "unknown error");
+      throw lastErr;
+    })();
+    return engine.promise;
+  }
+
+  // Picks the first result that looks like a tyre number. Returns {code, raw}.
+  function pickCode(results) {
+    var out = { code: "", raw: "" };
+    (results || []).forEach(function (r) {
+      if (out.code) return;
+      out.raw = r.format + " " + r.rawValue;
+      var v = normCode(r.rawValue);
+      if (/^[A-Z0-9-]{5,24}$/.test(v)) out.code = v;
+    });
+    return out;
+  }
+
   // ---------- live scanner ----------
-  var scanning = false, cand = { code: "", n: 0 }, lastAccept = 0, lastDupMsg = 0, audio = null, torchOn = false;
+  var scanning = false, stream = null, track = null, tickTimer = null;
+  var cand = { code: "", n: 0 }, lastAccept = 0, lastDupMsg = 0, audio = null, torchOn = false;
+  var zoomLevels = [], zoomIdx = 0;
+  var dbg = { frames: 0, last: "none", err: "" };
+  var video = document.querySelector("#viewport video");
+  var work = document.createElement("canvas");
+  var wctx = work.getContext("2d", { willReadFrequently: true });
 
   function beep(freq, ms) {
     try {
@@ -545,20 +597,18 @@ ul.rows li:first-child { border-top: 0; }
     $("scanCodes").textContent = state.set.join("  ");
   }
 
+  function renderDebug() {
+    var eng = engine.det ? "engine ready" : engine.error ? "engine failed: " + engine.error : "engine loading";
+    $("scanDbg").textContent = eng + " · " + (video.videoWidth || 0) + "×" + (video.videoHeight || 0) +
+      " · " + dbg.frames + " frames · last read: " + dbg.last + (dbg.err ? " · " + dbg.err : "");
+  }
+
   function flashGuide() {
     var g = $("guide"); g.classList.add("hit");
     setTimeout(function () { g.classList.remove("hit"); }, 350);
   }
 
-  function onDetected(r) {
-    if (!scanning) return;
-    var cr = r && r.codeResult;
-    if (!cr || !cr.code) return;
-    var code = normCode(cr.code);
-    if (!/^[A-Z0-9-]{5,}$/.test(code)) return;
-    var errs = (cr.decodedCodes || []).map(function (d) { return d.error; }).filter(function (x) { return typeof x === "number"; });
-    var avg = errs.length ? errs.reduce(function (a, b) { return a + b; }, 0) / errs.length : 0;
-    if (avg > MAX_ERROR) return;
+  function acceptLive(code) {
     if (code === cand.code) cand.n++; else cand = { code: code, n: 1 };
     if (cand.n < READS_NEEDED) return;
     cand = { code: "", n: 0 };
@@ -583,68 +633,147 @@ ul.rows li:first-child { border-top: 0; }
     }
   }
 
-  function startScanner() {
+  async function tick() {
+    if (!scanning) return;
+    var W = video.videoWidth, H = video.videoHeight;
+    if (W && H && engine.det) {
+      // Decode the centre square of the frame, which is what the on-screen box shows.
+      var side = Math.min(W, H), out = Math.min(side, 1280);
+      if (work.width !== out) { work.width = out; work.height = out; }
+      wctx.drawImage(video, (W - side) / 2, (H - side) / 2, side, side, 0, 0, out, out);
+      try {
+        var results = await engine.det.detect(wctx.getImageData(0, 0, out, out));
+        dbg.frames++; dbg.err = "";
+        var p = pickCode(results);
+        if (p.raw) dbg.last = p.raw;
+        if (p.code && scanning) acceptLive(p.code);
+      } catch (e) { dbg.err = String((e && e.message) || e).slice(0, 80); }
+    }
+    renderDebug();
+    if (scanning) tickTimer = setTimeout(tick, 50);
+  }
+
+  function setZoom(i) {
+    zoomIdx = i;
+    var z = zoomLevels[i];
+    $("zoomBtn").textContent = "Zoom " + z + "×";
+    try { track.applyConstraints({ advanced: [{ zoom: z }] }).catch(function () {}); } catch (e) {}
+  }
+
+  async function startScanner() {
     if (!kartNow()) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
-    if (!window.Quagga) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       $("scanStatus").className = "status bad";
-      $("scanStatus").textContent = "The scanner didn't load. Check the signal and reload the page, or type the numbers below.";
+      $("scanStatus").textContent = "This browser can't open the camera. Open the page in Safari, or take a photo of the sticker below.";
       return;
     }
     try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); if (audio.state === "suspended") audio.resume(); } catch (e) {}
-    cand = { code: "", n: 0 }; torchOn = false;
+    cand = { code: "", n: 0 }; torchOn = false; dbg = { frames: 0, last: "none", err: "" };
     $("scanner").hidden = false;
-    $("torchBtn").hidden = true;
+    $("torchBtn").hidden = true; $("zoomBtn").hidden = true;
+    $("torchBtn").textContent = "Light on";
     $("scanMsg").textContent = "Starting the camera…";
-    renderScanner();
-    window.Quagga.init({
-      inputStream: {
-        type: "LiveStream",
-        target: $("viewport"),
-        constraints: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-        area: { top: "30%", right: "4%", left: "4%", bottom: "30%" }
-      },
-      locator: { patchSize: "medium", halfSample: true },
-      numOfWorkers: 0,
-      frequency: 12,
-      locate: true,
-      decoder: { readers: ["code_128_reader", "code_39_reader", "code_93_reader"] }
-    }, function (err) {
-      if (err) {
-        $("scanner").hidden = true;
-        $("scanStatus").className = "status bad";
-        $("scanStatus").textContent = "Camera not available. Allow camera access for this site in Safari, then try again. You can also type the numbers below.";
-        return;
+    renderScanner(); renderDebug();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+    } catch (e) {
+      $("scanner").hidden = true;
+      $("scanStatus").className = "status bad";
+      $("scanStatus").textContent = "Camera not available. Allow camera access for this site in Safari, then try again. You can also take a photo of the sticker below.";
+      return;
+    }
+    video.srcObject = stream;
+    try { await video.play(); } catch (e) {}
+    track = stream.getVideoTracks()[0];
+    try {
+      var caps = track.getCapabilities ? track.getCapabilities() : {};
+      if (caps.torch) $("torchBtn").hidden = false;
+      if (caps.zoom && caps.zoom.max > 1) {
+        zoomLevels = [1, 2, 3].filter(function (z) { return z >= (caps.zoom.min || 1) && z <= caps.zoom.max; });
+        if (zoomLevels.length > 1) { $("zoomBtn").hidden = false; setZoom(zoomLevels.indexOf(2) >= 0 ? zoomLevels.indexOf(2) : 0); }
       }
-      scanning = true;
-      window.Quagga.onDetected(onDetected);
-      window.Quagga.start();
-      $("scanMsg").textContent = "Hold the sticker inside the box, bars level.";
-      try {
-        var track = window.Quagga.CameraAccess.getActiveTrack();
-        var caps = track && track.getCapabilities ? track.getCapabilities() : null;
-        if (caps && caps.torch) $("torchBtn").hidden = false;
-      } catch (e) {}
+    } catch (e) {}
+    scanning = true;
+    $("scanMsg").textContent = engine.det ? "Hold the sticker inside the box, about a hand's length away." : "Loading the scanner…";
+    loadEngine().then(function () {
+      if (scanning) $("scanMsg").textContent = "Hold the sticker inside the box, about a hand's length away.";
+    }, function () {
+      if (scanning) $("scanMsg").textContent = "The scanner couldn't load. Check the signal, tap Done and try again.";
+      renderDebug();
     });
+    tick();
   }
 
   function stopScanner() {
     scanning = false;
-    try { window.Quagga.offDetected(onDetected); window.Quagga.stop(); } catch (e) {}
+    clearTimeout(tickTimer);
+    try { if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    stream = null; track = null;
+    try { video.srcObject = null; } catch (e) {}
     $("scanner").hidden = true;
     renderSet();
   }
 
   $("scanBtn").addEventListener("click", startScanner);
   $("scanClose").addEventListener("click", stopScanner);
+  $("zoomBtn").addEventListener("click", function () { if (zoomLevels.length) setZoom((zoomIdx + 1) % zoomLevels.length); });
   $("torchBtn").addEventListener("click", function () {
     try {
-      var track = window.Quagga.CameraAccess.getActiveTrack();
       torchOn = !torchOn;
-      track.applyConstraints({ advanced: [{ torch: torchOn }] });
+      track.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(function () {});
       this.textContent = torchOn ? "Light off" : "Light on";
     } catch (e) {}
   });
   document.addEventListener("visibilitychange", function () { if (document.hidden && scanning) stopScanner(); });
+
+  // ---------- photo fallback ----------
+  function fileToCanvas(file, max) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        var c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve(c);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("image")); };
+      img.src = url;
+    });
+  }
+
+  $("photoBtn").addEventListener("click", function () {
+    if (!kartNow()) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
+    if (state.set.length >= SET_SIZE) { toast("This kart already has 4. Save it first."); return; }
+    $("photoInput").value = ""; $("photoInput").click();
+  });
+  $("photoInput").addEventListener("change", async function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var st = $("scanStatus");
+    st.className = "status"; st.textContent = "Reading the photo…";
+    try {
+      await loadEngine();
+      var c = await fileToCanvas(file, 2400);
+      var results = await engine.det.detect(c.getContext("2d").getImageData(0, 0, c.width, c.height));
+      var p = pickCode(results);
+      if (!p.code) {
+        st.className = "status bad";
+        st.textContent = "No barcode found in that photo" + (p.raw ? " (saw: " + p.raw + ")" : "") + ". Get closer and keep it sharp, or type the number.";
+        return;
+      }
+      var r = addToSet(p.code);
+      st.textContent = r === "added" ? p.code + " added from the photo." : r === "dup" ? p.code + " is already on this kart's list." : "This kart already has 4. Save it first.";
+    } catch (e) {
+      st.className = "status bad";
+      st.textContent = engine.error ? "The scanner couldn't load (" + engine.error + "). Check the signal and reload." : "That photo couldn't be read. Try again.";
+    }
+  });
 
   // ---------- list and export ----------
   $("filterInput").addEventListener("input", function () { state.filter = normKart(this.value); renderList(); });
@@ -714,6 +843,7 @@ ul.rows li:first-child { border-top: 0; }
   // ---------- start ----------
   load();
   renderAll();
+  loadEngine().catch(function () {});
 })();
 </script>
 </body>
