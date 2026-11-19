@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tyre Scan">
+<title>Kart Tyre Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one phone-width column, a pit-board header, two tabs, one big amber action. */
+:root {
+  --bg: #EEF0F2;
+  --surface: #FFFFFF;
+  --ink: #14181F;
+  --muted: #5B6472;
+  --line: #D5D9DF;
+  --accent: #F5B700;
+  --accent-ink: #14181F;
+  --ok: #1B7F4B;
+  --bad: #C2321F;
+  --display: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+  --body: "Barlow", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12151A; --surface: #1C2027; --ink: #F1F3F5; --muted: #9AA3AF; --line: #2E343D;
+    --accent: #FFC629; --accent-ink: #14181F; --ok: #4CC38A; --bad: #FF7A66;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 16px; line-height: 1.4;
+  -webkit-text-size-adjust: 100%;
+}
+.app { max-width: 520px; margin: 0 auto; padding: 16px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; flex-direction: column; gap: 4px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 30px; line-height: 1; text-transform: uppercase; margin: 0; }
+.summary { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.summary strong { color: var(--ink); font-weight: 600; }
+.badge { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: 12px; }
+.tabs { display: grid; grid-template-columns: repeat(2, 1fr); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.tabs button {
+  font-family: var(--display); font-weight: 600; font-size: 18px; text-transform: uppercase; letter-spacing: .03em;
+  background: none; border: 0; color: var(--muted); padding: 10px 4px; cursor: pointer; border-bottom: 3px solid transparent;
+}
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.panel { display: flex; flex-direction: column; gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+label, .label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+input[type="text"], input[type="search"] {
+  font: inherit; font-size: 18px; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; min-width: 0;
+}
+input.kart { font-family: var(--display); font-weight: 700; font-size: 32px; padding: 6px 12px; }
+input.code { font-family: var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+.btn {
+  font-family: var(--display); font-weight: 700; font-size: 20px; text-transform: uppercase; letter-spacing: .03em;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 8px; padding: 10px 14px; cursor: pointer;
+}
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.big { font-size: 26px; padding: 18px 14px; width: 100%; }
+.btn.danger { color: var(--bad); }
+.btn.small { font-size: 15px; padding: 5px 10px; }
+.btn:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; gap: 8px; align-items: stretch; }
+.row > input { flex: 1; }
+.status { font-size: 15px; color: var(--muted); min-height: 1.4em; margin: 0; }
+.status.bad { color: var(--bad); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions .btn { flex: 1 1 auto; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 20px; text-transform: uppercase; letter-spacing: .03em; margin: 0; }
+.set-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.count { font-family: var(--display); font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
+.slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.slots span { height: 8px; border-radius: 4px; background: var(--line); }
+.slots span.on { background: var(--ok); }
+ul.set { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+ul.set li { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; }
+ul.set .n { font-family: var(--display); font-weight: 700; font-size: 20px; color: var(--muted); text-align: center; }
+ul.set .note { grid-column: 2 / -1; font-size: 13px; color: var(--bad); margin: 0; }
+ul.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+ul.rows li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); min-width: 0; }
+ul.rows li:first-child { border-top: 0; }
+.tcode { font-family: var(--mono); font-size: 15px; letter-spacing: .03em; overflow-wrap: anywhere; flex: 1; min-width: 0; }
+.kartno { font-family: var(--display); font-weight: 700; font-size: 20px; min-width: 44px; }
+.time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.group { display: flex; flex-direction: column; gap: 4px; }
+.group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; border-bottom: 2px solid var(--ink); padding-bottom: 4px; }
+.group-head .n { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1; }
+.group-head .c { color: var(--muted); font-size: 14px; }
+.empty { color: var(--muted); margin: 0; }
+.toast {
+  position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 488px; margin: 0 auto;
+  background: var(--ink); color: var(--surface); border-radius: 10px; padding: 12px 14px; font-weight: 500;
+  box-shadow: 0 6px 24px rgba(0,0,0,.25); z-index: 60;
+}
+.overlay { position: fixed; inset: 0; background: rgba(10,12,16,.6); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+.dialog { background: var(--surface); color: var(--ink); border-radius: 12px; padding: 18px; max-width: 420px; width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.dialog p { margin: 0; font-size: 17px; }
+
+/* Scanner: always dark, whatever the theme. */
+.scanner { position: fixed; inset: 0; z-index: 40; background: #0B0D10; color: #F1F3F5; display: flex; flex-direction: column; }
+.scan-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; }
+.scan-top .who { font-family: var(--display); font-weight: 700; font-size: 26px; text-transform: uppercase; line-height: 1; }
+.scan-top .count { font-size: 30px; }
+.viewport { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: #000; }
+.viewport video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.viewport canvas { display: none; }
+.guide { position: absolute; left: 6%; right: 6%; top: 50%; height: 26%; transform: translateY(-50%); border: 3px solid var(--accent); border-radius: 12px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.35); pointer-events: none; }
+.guide.hit { border-color: #4CC38A; }
+.scan-bottom { padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+.scan-msg { margin: 0; font-size: 17px; min-height: 1.4em; }
+.scan-codes { margin: 0; font-family: var(--mono); font-size: 14px; color: #9AA3AF; overflow-wrap: anywhere; min-height: 1.4em; }
+.scanner .btn { background: #1C2027; color: #F1F3F5; border-color: #2E343D; }
+.scanner .slots span { background: #2E343D; }
+.scanner .slots span.on { background: #4CC38A; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Kart Tyre Scanner</h1>
+    <div class="summary">
+      <span><strong id="sumTyres">0</strong> tyres</span>
+      <span><strong id="sumKarts">0</strong> karts</span>
+      <span class="badge" id="storeBadge">Saved on this phone</span>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button id="tab-scan" role="tab" aria-selected="true" aria-controls="panel-scan">Scan</button>
+    <button id="tab-list" role="tab" aria-selected="false" aria-controls="panel-list">List and export</button>
+  </div>
+
+  <!-- SCAN -->
+  <section class="panel" id="panel-scan" role="tabpanel" aria-labelledby="tab-scan">
+    <div class="card">
+      <div class="field">
+        <label for="kartInput">Kart number</label>
+        <input class="kart" id="kartInput" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 1">
+        <p class="hint" id="kartCount">Enter the kart, scan its 4 tyres, then save.</p>
+      </div>
+
+      <div class="set-head">
+        <h2 id="setTitle">This kart</h2>
+        <span class="count" id="setCount">0 of 4</span>
+      </div>
+      <div class="slots" id="slots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <ul class="set" id="setList"></ul>
+
+      <button type="button" class="btn primary big" id="scanBtn">Scan 4 tyres</button>
+      <p class="status" id="scanStatus" role="status"></p>
+      <div class="actions">
+        <button type="button" class="btn" id="saveBtn" disabled>Save kart</button>
+        <button type="button" class="btn danger" id="resetBtn" hidden>Clear these</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label for="manualCode">Barcode won't scan? Type the tyre number</label>
+        <div class="row">
+          <input class="code" id="manualCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="L70886226">
+          <button type="button" class="btn" id="manualAdd">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Last saved</h2>
+      <ul class="rows" id="recentList"></ul>
+      <p class="empty" id="recentEmpty">Nothing saved yet.</p>
+    </div>
+  </section>
+
+  <!-- LIST -->
+  <section class="panel" id="panel-list" role="tabpanel" aria-labelledby="tab-list" hidden>
+    <div class="card">
+      <h2>Export</h2>
+      <div class="actions">
+        <button type="button" class="btn primary" id="shareBtn" hidden>Share CSV</button>
+        <button type="button" class="btn" id="downloadBtn">Download CSV</button>
+        <button type="button" class="btn" id="copyBtn">Copy as text</button>
+      </div>
+      <p class="hint">Export at the end of each session. The list lives only on this phone until you do.</p>
+    </div>
+    <div class="card">
+      <div class="field">
+        <label for="filterInput">Find a kart or tyre number</label>
+        <input id="filterInput" type="search" autocomplete="off" placeholder="12 or L7088">
+      </div>
+      <div id="groups" class="panel"></div>
+      <p class="empty" id="listEmpty">No karts saved yet.</p>
+      <div class="actions">
+        <button type="button" class="btn danger" id="clearBtn">Clear all</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- LIVE SCANNER -->
+<div class="scanner" id="scanner" hidden>
+  <div class="scan-top">
+    <span class="who" id="scanWho">Kart</span>
+    <span class="count" id="scanCount">0 of 4</span>
+  </div>
+  <div class="viewport" id="viewport">
+    <video playsinline muted autoplay></video>
+    <div class="guide" id="guide"></div>
+  </div>
+  <div class="scan-bottom">
+    <div class="slots" id="scanSlots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <p class="scan-msg" id="scanMsg" role="status">Starting the camera…</p>
+    <p class="scan-codes" id="scanCodes"></p>
+    <div class="actions">
+      <button type="button" class="btn" id="torchBtn" hidden>Light on</button>
+      <button type="button" class="btn" id="scanClose">Done</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogText">
+    <p id="dialogText"></p>
+    <div class="actions">
+      <button type="button" class="btn primary" id="dialogOk">OK</button>
+      <button type="button" class="btn" id="dialogAlt" hidden></button>
+      <button type="button" class="btn" id="dialogCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var LIST_KEY = "kart-tyres-v1";
+  var DRAFT_KEY = "kart-tyres-draft-v1";
+  var SET_SIZE = 4;
+  var READS_NEEDED = 3;      // identical reads in a row before a code is accepted
+  var MAX_ERROR = 0.2;       // reject shaky decodes
+
+  var state = {
+    items: new Map(),        // code -> {code, kart, ts}
+    set: [],                 // codes scanned for the kart in hand
+    filter: ""
+  };
+
+  // ---------- helpers ----------
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function normCode(s) { return String(s || "").toUpperCase().replace(/\s+/g, "").trim(); }
+  function normKart(s) { return String(s || "").toUpperCase().replace(/\s+/g, "").replace(/^#/, "").trim(); }
+  function hhmm(ts) {
+    var d = new Date(ts);
+    return isNaN(d) ? "" : String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+  function kartSort(a, b) { return a.localeCompare(b, undefined, { numeric: true }); }
+  function allItems() { return Array.from(state.items.values()); }
+  function tyresOnKart(kart) { return allItems().filter(function (t) { return t.kart === kart; }); }
+  function plural(n) { return n + (n === 1 ? " tyre" : " tyres"); }
+  function kartNow() { return normKart($("kartInput").value); }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var el = $("toast");
+    el.textContent = msg; el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.hidden = true; }, 3200);
+  }
+
+  // In-page dialog. Resolves true (main button), "alt" (second button) or false (cancel).
+  var dialogResolve = null;
+  function ask(text, okLabel, altLabel) {
+    $("dialogText").textContent = text;
+    $("dialogOk").textContent = okLabel || "OK";
+    $("dialogAlt").hidden = !altLabel;
+    $("dialogAlt").textContent = altLabel || "";
+    $("overlay").hidden = false;
+    $("dialogOk").focus();
+    return new Promise(function (res) { dialogResolve = res; });
+  }
+  function closeDialog(v) { $("overlay").hidden = true; if (dialogResolve) { var r = dialogResolve; dialogResolve = null; r(v); } }
+  $("dialogOk").addEventListener("click", function () { closeDialog(true); });
+  $("dialogAlt").addEventListener("click", function () { closeDialog("alt"); });
+  $("dialogCancel").addEventListener("click", function () { closeDialog(false); });
+
+  // ---------- storage (this phone) ----------
+  var storageOk = true;
+  function persist() {
+    try { localStorage.setItem(LIST_KEY, JSON.stringify(allItems())); storageOk = true; }
+    catch (e) { storageOk = false; }
+    $("storeBadge").textContent = storageOk ? "Saved on this phone" : "Not saving. Export before closing";
+  }
+  function persistDraft() {
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ kart: $("kartInput").value, set: state.set })); } catch (e) {}
+  }
+  function load() {
+    try {
+      var arr = JSON.parse(localStorage.getItem(LIST_KEY) || "[]");
+      if (Array.isArray(arr)) arr.forEach(function (t) { if (t && t.code && t.kart) state.items.set(t.code, t); });
+    } catch (e) {}
+    try {
+      var d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+      if (d && Array.isArray(d.set)) {
+        state.set = d.set.map(normCode).slice(0, SET_SIZE);
+        $("kartInput").value = d.kart || "";
+      }
+    } catch (e) {}
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
+  }
+
+  // ---------- render ----------
+  function renderAll() { renderSummary(); renderKart(); renderSet(); renderRecent(); renderList(); }
+
+  function renderSummary() {
+    var items = allItems();
+    $("sumTyres").textContent = items.length;
+    $("sumKarts").textContent = new Set(items.map(function (t) { return t.kart; })).size;
+  }
+
+  function renderKart() {
+    var kart = kartNow();
+    var el = $("kartCount");
+    if (!kart) el.textContent = "Enter the kart, scan its 4 tyres, then save.";
+    else {
+      var n = tyresOnKart(kart).length;
+      el.textContent = n ? "Kart " + kart + " already has " + plural(n) + " saved." : "Kart " + kart + " has nothing saved yet.";
+    }
+    $("setTitle").textContent = kart ? "Kart " + kart : "This kart";
+    $("saveBtn").textContent = kart ? "Save kart " + kart : "Save kart";
+  }
+
+  function otherKartNote(code) {
+    var cur = state.items.get(code);
+    return cur && cur.kart !== kartNow() ? "Already saved on kart " + cur.kart : "";
+  }
+
+  function renderSet() {
+    var n = state.set.length, full = n >= SET_SIZE;
+    $("setCount").textContent = n + " of " + SET_SIZE;
+    Array.prototype.forEach.call($("slots").children, function (s, i) { s.className = i < n ? "on" : ""; });
+    $("setList").innerHTML = state.set.map(function (code, i) {
+      var note = otherKartNote(normCode(code));
+      return "<li>" +
+        '<span class="n">' + (i + 1) + "</span>" +
+        '<input class="code" id="set-code-' + i + '" type="text" data-set-i="' + i + '" value="' + esc(code) + '" aria-label="Tyre ' + (i + 1) + ' number" autocomplete="off" autocapitalize="characters" spellcheck="false">' +
+        '<button type="button" class="btn small danger" data-set-del="' + i + '" aria-label="Remove tyre ' + (i + 1) + '">Remove</button>' +
+        '<p class="note" data-note="' + i + '"' + (note ? "" : " hidden") + ">" + esc(note) + "</p>" +
+        "</li>";
+    }).join("");
+    var scan = $("scanBtn"), save = $("saveBtn");
+    scan.disabled = full;
+    scan.textContent = full ? "4 of 4 scanned" : n ? "Scan the next " + (SET_SIZE - n) : "Scan 4 tyres";
+    scan.classList.toggle("primary", !full);
+    save.disabled = n === 0;
+    save.classList.toggle("primary", full);
+    save.classList.toggle("big", full);
+    $("resetBtn").hidden = n === 0;
+  }
+
+  function renderSetNotes() {
+    state.set.forEach(function (code, i) {
+      var el = document.querySelector('[data-note="' + i + '"]');
+      if (!el) return;
+      var note = otherKartNote(normCode(code));
+      el.textContent = note; el.hidden = !note;
+    });
+  }
+
+  function savedRow(t, showKart) {
+    return "<li>" +
+      (showKart ? '<span class="kartno">' + esc(t.kart) + "</span>" : "") +
+      '<span class="tcode">' + esc(t.code) + "</span>" +
+      '<span class="time">' + esc(hhmm(t.ts)) + "</span>" +
+      '<button type="button" class="btn small danger" data-del="' + esc(t.code) + '" aria-label="Remove ' + esc(t.code) + '">Remove</button>' +
+      "</li>";
+  }
+
+  function renderRecent() {
+    var items = allItems().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }).slice(0, 8);
+    $("recentList").innerHTML = items.map(function (t) { return savedRow(t, true); }).join("");
+    $("recentEmpty").hidden = items.length > 0;
+  }
+
+  function grouped(filter) {
+    var byKart = new Map();
+    allItems().forEach(function (t) {
+      if (filter && t.kart.indexOf(filter) < 0 && t.code.indexOf(filter) < 0) return;
+      if (!byKart.has(t.kart)) byKart.set(t.kart, []);
+      byKart.get(t.kart).push(t);
+    });
+    return Array.from(byKart.keys()).sort(kartSort).map(function (kart) {
+      return { kart: kart, tyres: byKart.get(kart).sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); }) };
+    });
+  }
+
+  function renderList() {
+    var groups = grouped(state.filter);
+    $("groups").innerHTML = groups.map(function (g) {
+      return '<div class="group"><div class="group-head"><span class="n">Kart ' + esc(g.kart) + '</span><span class="c">' +
+        plural(g.tyres.length) + '</span></div><ul class="rows">' +
+        g.tyres.map(function (t) { return savedRow(t, false); }).join("") + "</ul></div>";
+    }).join("");
+    var empty = $("listEmpty");
+    empty.hidden = groups.length > 0;
+    empty.textContent = state.items.size ? "Nothing matches that search." : "No karts saved yet.";
+  }
+
+  // ---------- tabs ----------
+  ["scan", "list"].forEach(function (name) {
+    $("tab-" + name).addEventListener("click", function () {
+      ["scan", "list"].forEach(function (n) {
+        $("tab-" + n).setAttribute("aria-selected", n === name ? "true" : "false");
+        $("panel-" + n).hidden = n !== name;
+      });
+    });
+  });
+
+  // ---------- the kart in hand ----------
+  $("kartInput").addEventListener("input", function () { renderKart(); renderSetNotes(); persistDraft(); });
+
+  // Returns "added", "dup" or "full".
+  function addToSet(raw) {
+    var code = normCode(raw);
+    if (state.set.length >= SET_SIZE) return "full";
+    if (state.set.some(function (c) { return normCode(c) === code; })) return "dup";
+    state.set.push(code);
+    persistDraft(); renderSet();
+    return "added";
+  }
+
+  $("setList").addEventListener("input", function (e) {
+    var i = e.target.getAttribute("data-set-i");
+    if (i === null) return;
+    state.set[+i] = e.target.value;
+    persistDraft(); renderSetNotes();
+  });
+  $("setList").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-set-del]");
+    if (!b) return;
+    state.set.splice(+b.getAttribute("data-set-del"), 1);
+    persistDraft(); renderSet();
+  });
+
+  $("manualAdd").addEventListener("click", function () {
+    var code = normCode($("manualCode").value);
+    if (code.length < 3) { toast("That tyre number looks too short."); return; }
+    var r = addToSet(code);
+    if (r === "added") $("manualCode").value = "";
+    else toast(r === "dup" ? code + " is already on this kart's list." : "This kart already has 4. Save it first.");
+  });
+  $("manualCode").addEventListener("keydown", function (e) { if (e.key === "Enter") $("manualAdd").click(); });
+
+  $("resetBtn").addEventListener("click", async function () {
+    if (await ask("Clear the " + plural(state.set.length) + " scanned for this kart? Saved karts are not touched.", "Clear these")) {
+      state.set = []; persistDraft(); renderSet();
+    }
+  });
+
+  $("saveBtn").addEventListener("click", async function () {
+    var kart = kartNow();
+    if (!kart) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
+    var codes = state.set.map(normCode);
+    if (!codes.length) return;
+    var blank = codes.findIndex(function (c) { return c.length < 3; });
+    if (blank >= 0) { toast("Tyre " + (blank + 1) + " has no number. Type it or remove it."); var el = $("set-code-" + blank); if (el) el.focus(); return; }
+    if (new Set(codes).size !== codes.length) { toast("The same tyre number is listed twice."); return; }
+    if (codes.length < SET_SIZE) {
+      if (!(await ask("Only " + codes.length + " of " + SET_SIZE + " tyres scanned for kart " + kart + ". Save anyway?", "Save " + codes.length))) return;
+    }
+    var already = tyresOnKart(kart).filter(function (t) { return codes.indexOf(t.code) < 0; });
+    var replace = false;
+    if (already.length) {
+      var a = await ask("Kart " + kart + " already has " + plural(already.length) + " saved. Replace them with this scan, or keep both?", "Replace", "Keep both");
+      if (a === false) return;
+      replace = a === true;
+    }
+    var moved = codes.filter(function (c) { var cur = state.items.get(c); return cur && cur.kart !== kart; });
+    if (moved.length) {
+      var list = moved.map(function (c) { return c + " (kart " + state.items.get(c).kart + ")"; }).join(", ");
+      if (!(await ask("Already saved on another kart: " + list + ". Move to kart " + kart + "?", "Move"))) return;
+    }
+    if (replace) already.forEach(function (t) { state.items.delete(t.code); });
+    var now = Date.now();
+    codes.forEach(function (c, i) { state.items.set(c, { code: c, kart: kart, ts: now + i }); });
+    persist();
+    state.set = [];
+    $("kartInput").value = "";
+    persistDraft();
+    renderAll();
+    $("scanStatus").className = "status"; $("scanStatus").textContent = "";
+    toast(storageOk ? "Kart " + kart + " saved with " + plural(codes.length) + ". Enter the next kart."
+                    : "Kart " + kart + " is listed, but this phone isn't storing data. Export before closing.");
+    window.scrollTo(0, 0);
+    $("kartInput").focus();
+  });
+
+  document.addEventListener("click", async function (e) {
+    var b = e.target.closest("[data-del]");
+    if (!b) return;
+    var t = state.items.get(b.getAttribute("data-del"));
+    if (!t) return;
+    if (!(await ask("Remove " + t.code + " from kart " + t.kart + "?", "Remove"))) return;
+    state.items.delete(t.code); persist(); renderAll();
+  });
+
+  // ---------- live scanner ----------
+  var scanning = false, cand = { code: "", n: 0 }, lastAccept = 0, lastDupMsg = 0, audio = null, torchOn = false;
+
+  function beep(freq, ms) {
+    try {
+      if (!audio) return;
+      var o = audio.createOscillator(), g = audio.createGain();
+      o.frequency.value = freq; o.connect(g); g.connect(audio.destination);
+      g.gain.setValueAtTime(0.25, audio.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + ms / 1000);
+      o.start(); o.stop(audio.currentTime + ms / 1000);
+    } catch (e) {}
+  }
+
+  function renderScanner() {
+    var n = state.set.length;
+    $("scanWho").textContent = "Kart " + kartNow();
+    $("scanCount").textContent = n + " of " + SET_SIZE;
+    Array.prototype.forEach.call($("scanSlots").children, function (s, i) { s.className = i < n ? "on" : ""; });
+    $("scanCodes").textContent = state.set.join("  ");
+  }
+
+  function flashGuide() {
+    var g = $("guide"); g.classList.add("hit");
+    setTimeout(function () { g.classList.remove("hit"); }, 350);
+  }
+
+  function onDetected(r) {
+    if (!scanning) return;
+    var cr = r && r.codeResult;
+    if (!cr || !cr.code) return;
+    var code = normCode(cr.code);
+    if (!/^[A-Z0-9-]{5,}$/.test(code)) return;
+    var errs = (cr.decodedCodes || []).map(function (d) { return d.error; }).filter(function (x) { return typeof x === "number"; });
+    var avg = errs.length ? errs.reduce(function (a, b) { return a + b; }, 0) / errs.length : 0;
+    if (avg > MAX_ERROR) return;
+    if (code === cand.code) cand.n++; else cand = { code: code, n: 1 };
+    if (cand.n < READS_NEEDED) return;
+    cand = { code: "", n: 0 };
+    var now = Date.now();
+    if (now - lastAccept < 900) return;
+    var res = addToSet(code);
+    if (res === "dup") {
+      if (now - lastDupMsg > 1500) { lastDupMsg = now; $("scanMsg").textContent = code + " already scanned. Move to the next tyre."; beep(300, 120); }
+      return;
+    }
+    if (res !== "added") return;
+    lastAccept = now;
+    beep(1000, 140); flashGuide(); renderScanner();
+    var other = otherKartNote(code);
+    if (state.set.length >= SET_SIZE) {
+      stopScanner();
+      $("scanStatus").className = "status";
+      $("scanStatus").textContent = "All 4 scanned. Check the numbers, then save.";
+      $("saveBtn").scrollIntoView({ block: "center" });
+    } else {
+      $("scanMsg").textContent = code + " added." + (other ? " " + other + "." : "") + " Next tyre.";
+    }
+  }
+
+  function startScanner() {
+    if (!kartNow()) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
+    if (!window.Quagga) {
+      $("scanStatus").className = "status bad";
+      $("scanStatus").textContent = "The scanner didn't load. Check the signal and reload the page, or type the numbers below.";
+      return;
+    }
+    try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); if (audio.state === "suspended") audio.resume(); } catch (e) {}
+    cand = { code: "", n: 0 }; torchOn = false;
+    $("scanner").hidden = false;
+    $("torchBtn").hidden = true;
+    $("scanMsg").textContent = "Starting the camera…";
+    renderScanner();
+    window.Quagga.init({
+      inputStream: {
+        type: "LiveStream",
+        target: $("viewport"),
+        constraints: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        area: { top: "30%", right: "4%", left: "4%", bottom: "30%" }
+      },
+      locator: { patchSize: "medium", halfSample: true },
+      numOfWorkers: 0,
+      frequency: 12,
+      locate: true,
+      decoder: { readers: ["code_128_reader", "code_39_reader", "code_93_reader"] }
+    }, function (err) {
+      if (err) {
+        $("scanner").hidden = true;
+        $("scanStatus").className = "status bad";
+        $("scanStatus").textContent = "Camera not available. Allow camera access for this site in Safari, then try again. You can also type the numbers below.";
+        return;
+      }
+      scanning = true;
+      window.Quagga.onDetected(onDetected);
+      window.Quagga.start();
+      $("scanMsg").textContent = "Hold the sticker inside the box, bars level.";
+      try {
+        var track = window.Quagga.CameraAccess.getActiveTrack();
+        var caps = track && track.getCapabilities ? track.getCapabilities() : null;
+        if (caps && caps.torch) $("torchBtn").hidden = false;
+      } catch (e) {}
+    });
+  }
+
+  function stopScanner() {
+    scanning = false;
+    try { window.Quagga.offDetected(onDetected); window.Quagga.stop(); } catch (e) {}
+    $("scanner").hidden = true;
+    renderSet();
+  }
+
+  $("scanBtn").addEventListener("click", startScanner);
+  $("scanClose").addEventListener("click", stopScanner);
+  $("torchBtn").addEventListener("click", function () {
+    try {
+      var track = window.Quagga.CameraAccess.getActiveTrack();
+      torchOn = !torchOn;
+      track.applyConstraints({ advanced: [{ torch: torchOn }] });
+      this.textContent = torchOn ? "Light off" : "Light on";
+    } catch (e) {}
+  });
+  document.addEventListener("visibilitychange", function () { if (document.hidden && scanning) stopScanner(); });
+
+  // ---------- list and export ----------
+  $("filterInput").addEventListener("input", function () { state.filter = normKart(this.value); renderList(); });
+
+  function csv() {
+    function q(s) { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+    var lines = ["kart,tyre_number,saved_at"];
+    grouped("").forEach(function (g) {
+      g.tyres.forEach(function (t) {
+        var d = new Date(t.ts);
+        lines.push([q(t.kart), q(t.code), q(isNaN(d) ? "" : d.toISOString())].join(","));
+      });
+    });
+    return lines.join("\n") + "\n";
+  }
+  function plainText() {
+    return grouped("").map(function (g) {
+      return "Kart " + g.kart + ": " + g.tyres.map(function (t) { return t.code; }).join(", ");
+    }).join("\n") + "\n";
+  }
+  function fileName() {
+    var d = new Date();
+    return "kart-tyres-" + d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + ".csv";
+  }
+  function csvFile() { return new File([csv()], fileName(), { type: "text/csv" }); }
+
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [new File(["a"], "a.csv", { type: "text/csv" })] })) $("shareBtn").hidden = false;
+  } catch (e) {}
+
+  $("shareBtn").addEventListener("click", function () {
+    if (!state.items.size) { toast("Nothing to share yet."); return; }
+    navigator.share({ files: [csvFile()], title: "Kart tyre list" }).catch(function (e) {
+      if (!e || e.name !== "AbortError") toast("Sharing didn't work. Try Download CSV or Copy as text.");
+    });
+  });
+  $("downloadBtn").addEventListener("click", function () {
+    if (!state.items.size) { toast("Nothing to download yet."); return; }
+    var url = URL.createObjectURL(new Blob([csv()], { type: "text/csv" }));
+    var a = document.createElement("a");
+    a.href = url; a.download = fileName();
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  });
+  $("copyBtn").addEventListener("click", function () {
+    if (!state.items.size) { toast("Nothing to copy yet."); return; }
+    var text = plainText();
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+      ta.remove();
+      toast(ok ? "Copied. Paste it into WhatsApp or Notes." : "Copy was blocked. Use Download CSV.");
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast("Copied. Paste it into WhatsApp or Notes."); }, fallback);
+    } else fallback();
+  });
+  $("clearBtn").addEventListener("click", async function () {
+    if (!state.items.size) { toast("The list is already empty."); return; }
+    if (!(await ask("Clear all " + plural(state.items.size) + "? Export first if you need the record. This can't be undone.", "Clear all"))) return;
+    state.items.clear(); persist(); renderAll();
+    toast("List cleared.");
+  });
+
+  // ---------- start ----------
+  load();
+  renderAll();
+})();
+</script>
+</body>
+</html>
