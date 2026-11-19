@@ -136,7 +136,7 @@ ul.rows li:first-child { border-top: 0; }
       <span><strong id="sumTyres">0</strong> tyres</span>
       <span><strong id="sumKarts">0</strong> karts</span>
       <span class="badge" id="storeBadge">Saved on this phone</span>
-      <span class="badge">v3</span>
+      <span class="badge">v5</span>
     </div>
   </header>
 
@@ -211,6 +211,13 @@ ul.rows li:first-child { border-top: 0; }
         <button type="button" class="btn danger" id="clearBtn">Clear all</button>
       </div>
     </div>
+    <div class="card">
+      <div class="field">
+        <label for="formatInput">Example tyre number for this event</label>
+        <input class="code" id="formatInput" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <p class="hint" id="formatHint">Used to read blurred or faded stickers. Letters are taken as fixed, digits can vary.</p>
+      </div>
+    </div>
   </section>
 </div>
 
@@ -256,6 +263,8 @@ ul.rows li:first-child { border-top: 0; }
   var $ = function (id) { return document.getElementById(id); };
   var LIST_KEY = "kart-tyres-v1";
   var DRAFT_KEY = "kart-tyres-draft-v1";
+  var FORMAT_KEY = "kart-tyres-format-v1";
+  var DEFAULT_FORMAT = "L70886226";
   var SET_SIZE = 4;
   var READS_NEEDED = 2;      // identical reads in a row before a code is accepted
 
@@ -528,8 +537,13 @@ ul.rows li:first-child { border-top: 0; }
   });
 
   // ---------- barcode decoder (built in, no network needed) ----------
-  // Code 128 decoder for tyre stickers. Works on a grayscale image, needs no quiet zone.
-  // Exposes Code128.decodeGray(gray, W, H) -> { code, votes } | null
+  // Code 128 reader for tyre stickers. Works on a grayscale image, needs no quiet zone.
+  //   Code128.decodeGray(gray, W, H, {format, strong}) -> { code, votes, method, score } | null
+  // Two stages:
+  //   1. "edges": classic edge-width decoding with checksum. Any Code 128, needs fairly sharp bars.
+  //   2. "match": for blurred or faded bars. Knows the number format (from an example such as L70886226),
+  //      finds the two ends of the barcode, then compares the smeared signal against every possible
+  //      symbol, also smeared, and keeps the combination that fits best and satisfies the checksum.
   var Code128 = (function () {
     "use strict";
     var PAT = ("212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 " +
@@ -541,6 +555,9 @@ ul.rows li:first-child { border-top: 0; }
       "311141 411131 211412 211214 211232").split(" ").map(function (p) { return p.split("").map(Number); });
     var STOP = [2, 3, 3, 1, 1, 1, 2];
 
+    // =====================================================================================
+    // Stage 1: edge-width decoding
+    // =====================================================================================
     // Edge-to-edge sums are immune to ink spread and glare; bar total breaks the remaining ties.
     function features(w, modules) {
       var n = w.length, tot = 0, i;
@@ -566,6 +583,7 @@ ul.rows li:first-child { border-top: 0; }
       return { sym: best, cost: bc };
     }
 
+    // syms: start, data..., check
     function toText(syms) {
       var set = { 103: "A", 104: "B", 105: "C" }[syms[0]], out = "", shift = false;
       for (var i = 1; i < syms.length - 1; i++) {
@@ -586,7 +604,6 @@ ul.rows li:first-child { border-top: 0; }
       return out;
     }
 
-    // el: alternating widths, el[0] is a bar. Returns decoded strings found on this line.
     function decodeElements(el, found) {
       var n = el.length;
       for (var i = 0; i + 6 <= n; i += 2) {
@@ -615,9 +632,8 @@ ul.rows li:first-child { border-top: 0; }
       }
     }
 
-    // prof: brightness along a line. Finds edges with a local threshold, then decodes both directions.
-    // B = block size, R = blocks either side used for the local min/max. Small windows keep thin, washed-out bars.
-    function decodePass(prof, n, B, R, found) {
+    // Local-threshold edge finder. B = block size, R = blocks either side used for the local min/max.
+    function findEdges(prof, n, B, R) {
       var nb = Math.ceil(n / B), mn = new Float32Array(nb), mx = new Float32Array(nb), i, b;
       for (b = 0; b < nb; b++) { mn[b] = 255; mx[b] = 0; }
       for (i = 0; i < n; i++) { b = (i / B) | 0; var v = prof[i]; if (v < mn[b]) mn[b] = v; if (v > mx[b]) mx[b] = v; }
@@ -625,8 +641,7 @@ ul.rows li:first-child { border-top: 0; }
       for (b = 0; b < nb; b++) {
         var lo = 255, hi = 0;
         for (var q = Math.max(0, b - R); q <= Math.min(nb - 1, b + R); q++) { if (mn[q] < lo) lo = mn[q]; if (mx[q] > hi) hi = mx[q]; }
-        // flat stretch (inside a wide bar or space): keep the last good threshold
-        if (hi - lo >= 30) last = (lo + hi) / 2;
+        if (hi - lo >= 30) last = (lo + hi) / 2;   // flat stretch: keep the last good threshold
         thr[b] = last;
       }
       var edges = [], dark = [], prev = 0, pd = 0;
@@ -639,66 +654,406 @@ ul.rows li:first-child { border-top: 0; }
         }
         prev = cur; pd = d;
       }
+      return { edges: edges, dark: dark };
+    }
+
+    function decodeEdges(E, found) {
+      var edges = E.edges;
       if (edges.length < 20) return;
-      var first = dark[0] === 1 ? 0 : 1, el = [];
-      for (i = first; i + 1 < edges.length; i++) el.push(edges[i + 1] - edges[i]);
+      var first = E.dark[0] === 1 ? 0 : 1, el = [];
+      for (var i = first; i + 1 < edges.length; i++) el.push(edges[i + 1] - edges[i]);
       decodeElements(el, found);
       var lastIsBar = (el.length % 2) === 1;
       decodeElements((lastIsBar ? el : el.slice(0, el.length - 1)).slice().reverse(), found);
     }
-    function decodeProfile(prof, n, found) {
-      decodePass(prof, n, 8, 4, found);
-      decodePass(prof, n, 5, 2, found);
-      decodePass(prof, n, 3, 2, found);
+
+    // =====================================================================================
+    // Stage 2: matched decoding for a known number format
+    // =====================================================================================
+    var K = 4;        // samples per module in the normalised signal
+    var R = 8;        // fine samples per module when rendering templates
+    var MARGIN = 4;   // modules of context kept either side of the barcode
+
+    // Turns an example number into the symbol layout its barcode uses.
+    // Returns { start, slots: [{fixed} | {lo, hi}], N (symbols incl. start and check), T (modules) }.
+    function makeFormat(example) {
+      var s = String(example || "").toUpperCase().replace(/\s+/g, "");
+      if (!s) return null;
+      function digitRun(i) { var j = i; while (j < s.length && s[j] >= "0" && s[j] <= "9") j++; return j - i; }
+      var slots = [], i = 0, set, start;
+      if (digitRun(0) >= 4 && digitRun(0) % 2 === 0) { set = "C"; start = 105; } else { set = "B"; start = 104; }
+      while (i < s.length) {
+        if (set === "C") {
+          if (digitRun(i) >= 2) { slots.push({ lo: 0, hi: 99 }); i += 2; }
+          else { slots.push({ fixed: 100 }); set = "B"; }
+        } else {
+          var d = digitRun(i);
+          if (d >= 4 && d % 2 === 0) { slots.push({ fixed: 99 }); set = "C"; continue; }
+          var ch = s.charCodeAt(i);
+          if (ch < 32 || ch > 127) return null;
+          if (ch >= 48 && ch <= 57) slots.push({ lo: 16, hi: 25 });        // a digit: any digit may appear here
+          else slots.push({ fixed: ch - 32 });                             // letters and symbols are taken as a fixed prefix
+          i++;
+        }
+      }
+      var N = slots.length + 2;
+      return { example: s, start: start, slots: slots, N: N, T: 11 * N + 13 };
     }
 
+    function gaussBlur(a, sig) {
+      if (sig < 0.05) return a;
+      var r = Math.ceil(sig * 3), k = new Float32Array(2 * r + 1), sum = 0, i, j;
+      for (i = -r; i <= r; i++) { k[i + r] = Math.exp(-i * i / (2 * sig * sig)); sum += k[i + r]; }
+      var n = a.length, out = new Float32Array(n);
+      for (i = 0; i < n; i++) {
+        var acc = 0;
+        for (j = -r; j <= r; j++) { var q = i + j; if (q < 0) q = 0; else if (q >= n) q = n - 1; acc += a[q] * k[j + r]; }
+        out[i] = acc / sum;
+      }
+      return out;
+    }
+
+    // mods: darkness per module (1 dark, 0 light, 0.5 unknown). Returns K samples per module after
+    // optional bar growth ("bleed", in modules per edge, negative shrinks) and Gaussian blur (sigma in modules).
+    function renderWave(mods, sigma, bleed) {
+      var n = mods.length * R, fine = new Float32Array(n), i, j;
+      for (i = 0; i < n; i++) fine[i] = mods[(i / R) | 0];
+      var nb = Math.round(Math.abs(bleed) * R);
+      if (nb > 0) {
+        var grown = new Float32Array(n), target = bleed > 0 ? 1 : 0;
+        for (i = 0; i < n; i++) {
+          var v = fine[i];
+          if (v !== target) {
+            for (j = Math.max(0, i - nb); j <= Math.min(n - 1, i + nb); j++) if (fine[j] === target) { v = target; break; }
+          }
+          grown[i] = v;
+        }
+        fine = grown;
+      }
+      fine = gaussBlur(fine, sigma * R);
+      var step = R / K, out = new Float32Array(mods.length * K);
+      for (i = 0; i < out.length; i++) { var a = 0; for (j = 0; j < step; j++) a += fine[i * step + j]; out[i] = a / step; }
+      return out;
+    }
+
+    function unit(a, off, len) {
+      var out = new Float32Array(len), mean = 0, i, nn = 0;
+      for (i = 0; i < len; i++) mean += a[off + i];
+      mean /= len;
+      for (i = 0; i < len; i++) { out[i] = a[off + i] - mean; nn += out[i] * out[i]; }
+      nn = Math.sqrt(nn) || 1;
+      for (i = 0; i < len; i++) out[i] /= nn;
+      return out;
+    }
+
+    var tplCache = {};
+    // Zero-mean, unit-length templates for every symbol and the stop, for one blur and bleed.
+    function templates(sigma, bleed) {
+      var key = sigma + "|" + bleed;
+      if (tplCache[key]) return tplCache[key];
+      var CTX = 3, sym = [], j, i;
+      for (j = 0; j < 106; j++) {
+        var mods = [];
+        for (i = 0; i < CTX; i++) mods.push(0.5);
+        PAT[j].forEach(function (w, idx) { for (var q = 0; q < w; q++) mods.push(idx % 2 === 0 ? 1 : 0); });
+        for (i = 0; i < CTX; i++) mods.push(0.5);
+        sym.push(unit(renderWave(mods, sigma, bleed), CTX * K, 11 * K));
+      }
+      var sm = [];
+      for (i = 0; i < CTX; i++) sm.push(0.5);
+      STOP.forEach(function (w, idx) { for (var q = 0; q < w; q++) sm.push(idx % 2 === 0 ? 1 : 0); });
+      for (i = 0; i < CTX; i++) sm.push(0);
+      var t = { sym: sym, stop: unit(renderWave(sm, sigma, bleed), CTX * K, 13 * K) };
+      tplCache[key] = t;
+      return t;
+    }
+
+    // Resamples the profile between s and e (pixel positions of the barcode's two ends) into
+    // module space: K samples per module, MARGIN modules either side. c bends the scale along the
+    // barcode (stickers sit on a curved sidewall). Output is darkness (high = dark).
+    function resample(prof, n, s, e, T, c, out) {
+      var L = e - s, len = (T + 2 * MARGIN) * K;
+      for (var j = 0; j < len; j++) {
+        var u = ((j + 0.5) / K - MARGIN) / T;
+        var p = s + L * (u + c * u * (1 - u));
+        if (p < 0) p = 0; else if (p > n - 1.001) p = n - 1.001;
+        var i0 = p | 0, f = p - i0;
+        out[j] = 255 - (prof[i0] * (1 - f) + prof[i0 + 1] * f);
+      }
+      return len;
+    }
+
+    function dotUnit(q, off, tpl, len) {
+      var mean = 0, i, nn = 0, acc = 0;
+      for (i = 0; i < len; i++) mean += q[off + i];
+      mean /= len;
+      for (i = 0; i < len; i++) { var d = q[off + i] - mean; nn += d * d; acc += d * tpl[i]; }
+      return nn > 1e-6 ? acc / Math.sqrt(nn) : 0;
+    }
+
+    var SIGMAS = [0.45, 0.8, 1.15], BLEEDS = [-0.2, 0, 0.2];
+
+    // How well the fixed parts (start, any fixed symbols, stop) fit at these settings.
+    function anchorScore(q, fmt, tp) {
+      var acc = dotUnit(q, MARGIN * K, tp.sym[fmt.start], 11 * K), cnt = 1;
+      for (var k = 0; k < fmt.slots.length; k++) {
+        if (fmt.slots[k].fixed !== undefined) { acc += dotUnit(q, (MARGIN + 11 * (k + 1)) * K, tp.sym[fmt.slots[k].fixed], 11 * K); cnt++; }
+      }
+      acc += dotUnit(q, (MARGIN + 11 * fmt.N) * K, tp.stop, 13 * K); cnt++;
+      return acc / cnt;
+    }
+
+    var qbuf = new Float32Array(4096);
+
+    // Full matched decode of one candidate (s, e). Returns {code, score, margin, min} or null.
+    function matchCandidate(prof, n, s, e, fmt) {
+      var T = fmt.T, m = (e - s) / T, best = null, len;
+      function tryAt(ds, de, c) {
+        len = resample(prof, n, s + ds * m, e + de * m, T, c, qbuf);
+        for (var si = 0; si < SIGMAS.length; si++) for (var bi = 0; bi < BLEEDS.length; bi++) {
+          var sc = anchorScore(qbuf, fmt, templates(SIGMAS[si], BLEEDS[bi]));
+          if (!best || sc > best.sc) best = { sc: sc, ds: ds, de: de, c: c, sigma: SIGMAS[si], bleed: BLEEDS[bi] };
+        }
+      }
+      var DS = [-0.6, 0, 0.6], CS = [-0.12, 0, 0.12];
+      for (var a = 0; a < 3; a++) for (var b = 0; b < 3; b++) for (var ci = 0; ci < 3; ci++) tryAt(DS[a], DS[b], CS[ci]);
+      if (!best || best.sc < 0.5) return null;
+      var b0 = best;
+      tryAt(b0.ds - 0.3, b0.de, b0.c); tryAt(b0.ds + 0.3, b0.de, b0.c);
+      b0 = best;
+      tryAt(b0.ds, b0.de - 0.3, b0.c); tryAt(b0.ds, b0.de + 0.3, b0.c);
+      b0 = best;
+      tryAt(b0.ds, b0.de, b0.c - 0.06); tryAt(b0.ds, b0.de, b0.c + 0.06);
+      if (!best || best.sc < 0.6) return null;
+      len = resample(prof, n, s + best.ds * m, e + best.de * m, T, best.c, qbuf);
+      var tp = templates(best.sigma, best.bleed);
+
+      // Score every allowed symbol at every position, allowing half a module of local drift.
+      var nSlots = fmt.slots.length, table = [], k, j, d;
+      function scoreSlot(pos, lo, hi) {
+        var sc = new Float32Array(106).fill(-1);
+        for (d = -2; d <= 2; d++) {
+          var off = (MARGIN + 11 * pos) * K + d, mean = 0, nn = 0, i, seg = new Float32Array(11 * K);
+          for (i = 0; i < 11 * K; i++) mean += qbuf[off + i];
+          mean /= 11 * K;
+          for (i = 0; i < 11 * K; i++) { seg[i] = qbuf[off + i] - mean; nn += seg[i] * seg[i]; }
+          nn = Math.sqrt(nn) || 1;
+          for (j = lo; j <= hi; j++) {
+            var t = tp.sym[j], acc = 0;
+            for (i = 0; i < 11 * K; i++) acc += seg[i] * t[i];
+            acc /= nn;
+            if (acc > sc[j]) sc[j] = acc;
+          }
+        }
+        return sc;
+      }
+      for (k = 0; k < nSlots; k++) {
+        var sl = fmt.slots[k];
+        table.push(sl.fixed !== undefined ? scoreSlot(k + 1, sl.fixed, sl.fixed) : scoreSlot(k + 1, sl.lo, sl.hi));
+      }
+      var checkTable = scoreSlot(nSlots + 1, 0, 102);
+      var startScore = scoreSlot(0, fmt.start, fmt.start)[fmt.start];
+      var stopScore = -1;
+      for (d = -2; d <= 2; d++) stopScore = Math.max(stopScore, dotUnit(qbuf, (MARGIN + 11 * fmt.N) * K + d, tp.stop, 13 * K));
+
+      // Shortlist per position, then pick the combination whose checksum symbol also fits.
+      var lists = [];
+      for (k = 0; k < nSlots; k++) {
+        var sl2 = fmt.slots[k];
+        if (sl2.fixed !== undefined) { lists.push([sl2.fixed]); continue; }
+        var idx = [];
+        for (j = sl2.lo; j <= sl2.hi; j++) idx.push(j);
+        idx.sort(function (x, y) { return table[k][y] - table[k][x]; });
+        lists.push(idx.slice(0, 5));
+      }
+      var top = null, second = null, cur = new Array(nSlots);
+      (function rec(pos, sum, wsum) {
+        if (pos === nSlots) {
+          var chk = (fmt.start + wsum) % 103, total = (sum + checkTable[chk] + startScore + stopScore) / (nSlots + 3);
+          var syms = [fmt.start].concat(cur, [chk]);
+          var r = { total: total, syms: syms };
+          if (!top || total > top.total) { second = top; top = r; }
+          else if (!second || total > second.total) second = r;
+          return;
+        }
+        for (var q = 0; q < lists[pos].length; q++) {
+          var sy = lists[pos][q];
+          cur[pos] = sy;
+          rec(pos + 1, sum + table[pos][sy], wsum + (pos + 1) * sy);
+        }
+      })(0, 0, 0);
+      if (!top) return null;
+      var mn = Math.min(startScore, stopScore, checkTable[top.syms[top.syms.length - 1]]);
+      for (k = 0; k < nSlots; k++) mn = Math.min(mn, table[k][top.syms[k + 1]]);
+      return {
+        code: toText(top.syms), score: top.total, margin: second ? top.total - second.total : top.total,
+        min: mn, anchor: best.sc, sigma: best.sigma, module: m
+      };
+    }
+
+    // Finds plausible barcode ends on one profile and returns them ranked by a quick anchor fit.
+    var budget = 0;   // quick fits left for this line
+    function findCandidates(prof, n, fmt, E, out) {
+      var edges = E.edges, dark = E.dark, T = fmt.T, i, j;
+      var tpA = templates(0.6, 0), tpB = templates(1.2, 0);
+      for (i = 0; i < edges.length; i++) {
+        if (dark[i] !== 1) continue;                       // barcode starts on a light-to-dark edge
+        var s = edges[i], before = i > 0 ? s - edges[i - 1] : s;
+        var maxJ = Math.min(edges.length, i + 6 * fmt.N + 16);   // a real barcode has at most 6N+7 edges inside
+        for (j = i + 13; j < maxJ; j += 2) {               // and ends on a dark-to-light edge
+          var e = edges[j], m = (e - s) / T;
+          if (m < 1.8) continue;
+          if (m > 16) break;
+          var after = j + 1 < edges.length ? edges[j + 1] - e : n - e;
+          if (before < 2 * m || after < 2 * m) continue;   // needs a little light label either side
+          if (--budget < 0) return;
+          resample(prof, n, s, e, T, 0, qbuf);
+          var sc = Math.max(anchorScore(qbuf, fmt, tpA), anchorScore(qbuf, fmt, tpB));
+          if (sc >= 0.5) out.push({ s: s, e: e, sc: sc });
+        }
+      }
+    }
+
+    function reverseInto(src, n, dst) { for (var i = 0; i < n; i++) dst[i] = src[n - 1 - i]; }
+
+    // =====================================================================================
+    // Scan lines over the image
+    // =====================================================================================
     var ANGLES = [0, 90, 8, -8, 98, 82, 16, -16, 106, 74, 24, -24, 114, 66];
     var OFFSETS = 28;
 
-    function decodeGray(g, W, H) {
-      var found = [], maxLen = Math.ceil(Math.sqrt(W * W + H * H)) + 2, prof = new Float32Array(maxLen);
-      var cx = W / 2, cy = H / 2;
-      for (var a = 0; a < ANGLES.length; a++) {
-        var th = ANGLES[a] * Math.PI / 180, dx = Math.cos(th), dy = Math.sin(th), nx = -dy, ny = dx;
-        var ext = Math.abs(nx) * W / 2 + Math.abs(ny) * H / 2;
-        for (var o = 0; o < OFFSETS; o++) {
-          var off = ((o + 0.5) / OFFSETS * 2 - 1) * ext * 0.86;
-          var px = cx + nx * off, py = cy + ny * off;
-          // clip the line to the image, with a 2px margin for the 3-tap average
-          var t0 = -1e9, t1 = 1e9, lim;
-          if (Math.abs(dx) > 1e-6) { lim = [(2 - px) / dx, (W - 3 - px) / dx]; t0 = Math.max(t0, Math.min(lim[0], lim[1])); t1 = Math.min(t1, Math.max(lim[0], lim[1])); }
-          else if (px < 2 || px > W - 3) continue;
-          if (Math.abs(dy) > 1e-6) { lim = [(2 - py) / dy, (H - 3 - py) / dy]; t0 = Math.max(t0, Math.min(lim[0], lim[1])); t1 = Math.min(t1, Math.max(lim[0], lim[1])); }
-          else if (py < 2 || py > H - 3) continue;
-          var n = Math.floor(t1 - t0);
-          if (n < 60) continue;
-          for (var i = 0; i < n; i++) {
-            var x = px + dx * (t0 + i), y = py + dy * (t0 + i);
-            var xa = (x + 0.5) | 0, ya = (y + 0.5) | 0, xb = (x + nx * 1.5 + 0.5) | 0, yb = (y + ny * 1.5 + 0.5) | 0, xc = (x - nx * 1.5 + 0.5) | 0, yc = (y - ny * 1.5 + 0.5) | 0;
-            prof[i] = (g[ya * W + xa] + g[yb * W + xb] + g[yc * W + xc]) / 3;
-          }
-          decodeProfile(prof, n, found);
-        }
+    // Samples brightness along a line through the image. off = signed distance of the line from the
+    // image centre. Returns {n, t0}: sample count and the along-line coordinate of sample 0.
+    function sampleLine(g, W, H, th, off, prof) {
+      var dx = Math.cos(th), dy = Math.sin(th), nx = -dy, ny = dx;
+      var px = W / 2 + nx * off, py = H / 2 + ny * off, t0 = -1e9, t1 = 1e9, lim;
+      if (Math.abs(dx) > 1e-6) { lim = [(4 - px) / dx, (W - 5 - px) / dx]; t0 = Math.max(t0, Math.min(lim[0], lim[1])); t1 = Math.min(t1, Math.max(lim[0], lim[1])); }
+      else if (px < 4 || px > W - 5) return null;
+      if (Math.abs(dy) > 1e-6) { lim = [(4 - py) / dy, (H - 5 - py) / dy]; t0 = Math.max(t0, Math.min(lim[0], lim[1])); t1 = Math.min(t1, Math.max(lim[0], lim[1])); }
+      else if (py < 4 || py > H - 5) return null;
+      t0 = Math.ceil(t0);
+      var n = Math.floor(t1 - t0);
+      if (n < 60) return null;
+      for (var i = 0; i < n; i++) {
+        var x = px + dx * (t0 + i), y = py + dy * (t0 + i), acc = 0;
+        for (var k = -2; k <= 2; k++) acc += g[((y + ny * 1.5 * k + 0.5) | 0) * W + ((x + nx * 1.5 * k + 0.5) | 0)];
+        prof[i] = acc / 5;
       }
-      if (!found.length) return null;
-      var count = {}, best = "", bn = 0;
-      found.forEach(function (s) { count[s] = (count[s] || 0) + 1; if (count[s] > bn) { bn = count[s]; best = s; } });
-      return { code: best, votes: bn, all: count };
+      return { n: n, t0: t0 };
     }
 
-    return { decodeGray: decodeGray };
+    function decodeGray(g, W, H, opts) {
+      opts = opts || {};
+      var fmt = opts.format || null, useStrong = opts.strong !== false && !!fmt;
+      var found = [], maxLen = Math.ceil(Math.sqrt(W * W + H * H)) + 8;
+      var prof = new Float32Array(maxLen), rev = new Float32Array(maxLen), strong = [];
+      if ((maxLen + 64) > qbuf.length) qbuf = new Float32Array(maxLen + 64);
+      for (var a = 0; a < ANGLES.length; a++) {
+        var th = ANGLES[a] * Math.PI / 180;
+        var ext = Math.abs(Math.sin(th)) * W / 2 + Math.abs(Math.cos(th)) * H / 2;
+        for (var o = 0; o < OFFSETS; o++) {
+          var off = ((o + 0.5) / OFFSETS * 2 - 1) * ext * 0.86;
+          var L = sampleLine(g, W, H, th, off, prof);
+          if (!L) continue;
+          var n = L.n;
+          var E1 = findEdges(prof, n, 8, 4), E2 = findEdges(prof, n, 5, 2), E3 = findEdges(prof, n, 3, 2);
+          if (opts.edges !== false) { decodeEdges(E1, found); decodeEdges(E2, found); decodeEdges(E3, found); }
+          if (useStrong && !found.length) {
+            var cands = [];
+            budget = 150;
+            findCandidates(prof, n, fmt, E1, cands);
+            findCandidates(prof, n, fmt, E2, cands);
+            cands.forEach(function (c) { strong.push({ th: th, off: off, rev: false, ts: L.t0 + c.s, te: L.t0 + c.e, sc: c.sc }); });
+            reverseInto(prof, n, rev);
+            cands = [];
+            budget = 150;
+            findCandidates(rev, n, fmt, findEdges(rev, n, 8, 4), cands);
+            findCandidates(rev, n, fmt, findEdges(rev, n, 5, 2), cands);
+            // positions on the reversed profile, converted back to along-line coordinates
+            cands.forEach(function (c) { strong.push({ th: th, off: off, rev: true, ts: L.t0 + (n - 1 - c.s), te: L.t0 + (n - 1 - c.e), sc: c.sc }); });
+          }
+        }
+      }
+      if (found.length) {
+        var count = {}, best = "", bn = 0;
+        found.forEach(function (s) { count[s] = (count[s] || 0) + 1; if (count[s] > bn) { bn = count[s]; best = s; } });
+        return { code: best, votes: bn, rivals: found.length - bn, method: "edges", score: 1 };
+      }
+      if (!useStrong || !strong.length) return null;
+
+      // Matched decode of one candidate on a line parallel to its own, shifted sideways by `shift` px.
+      function runMatch(c, shift) {
+        var L = sampleLine(g, W, H, c.th, c.off + shift, prof);
+        if (!L) return null;
+        var p = prof, s = c.ts - L.t0, e = c.te - L.t0;
+        if (c.rev) { reverseInto(prof, L.n, rev); p = rev; s = L.n - 1 - s; e = L.n - 1 - e; }
+        if (s < 0 || e > L.n - 1 || e - s < 100) return null;
+        return matchCandidate(p, L.n, s, e, fmt);
+      }
+
+      strong.sort(function (p, q) { return q.sc - p.sc; });
+      var pool = strong.slice(0, 80);
+      pool.forEach(function (c) {
+        var sup = 0;
+        for (var i = 0; i < strong.length && sup < 3; i++) {
+          var o = strong[i];
+          if (o !== c && o.th === c.th && o.rev === c.rev && o.off !== c.off && Math.abs(o.off - c.off) < 0.2 * Math.abs(c.te - c.ts) &&
+              Math.abs(o.ts - c.ts) < 8 && Math.abs(o.te - c.te) < 8) sup++;
+        }
+        c.rank = c.sc + 0.1 * sup;
+      });
+      pool.sort(function (p, q) { return q.rank - p.rank; });
+      strong = pool;
+      var seen = {}, picked = [], MINSCORE = opts.minScore || 0.88;
+      for (var z = 0; z < strong.length && picked.length < (opts.maxStrong || 10); z++) {
+        var key = strong[z].th.toFixed(3) + ":" + strong[z].off.toFixed(1) + ":" + strong[z].rev;
+        if (seen[key]) continue;
+        seen[key] = 1; picked.push(strong[z]);
+      }
+      var lead = null, detail = [];
+      picked.forEach(function (c) {
+        var r = runMatch(c, 0);
+        if (!r) return;
+        detail.push(r);
+        if (r.score >= MINSCORE && r.min >= 0.6 && (!lead || r.score > lead.r.score)) lead = { c: c, r: r };
+      });
+      if (!lead) return opts.debug ? { code: "", votes: 0, method: "match", detail: detail } : null;
+
+      // Confirm on parallel lines through the same barcode. Real barcodes repeat; coincidences don't.
+      var votes = 1, rivals = 0, m = lead.r.module;
+      [-6, -4, -2, 2, 4, 6].forEach(function (kk) {
+        var r = runMatch(lead.c, kk * m);
+        if (!r || r.score < MINSCORE || r.min < 0.6) return;
+        if (opts.debug) detail.push(r);
+        if (r.code === lead.r.code) votes++; else rivals++;
+      });
+      return { code: lead.r.code, votes: votes, rivals: rivals, method: "match", score: lead.r.score, sigma: lead.r.sigma, detail: opts.debug ? detail : undefined };
+    }
+
+    return { decodeGray: decodeGray, makeFormat: makeFormat };
   })();
 
+  // The number format the blur-tolerant stage expects, taken from an example tyre number.
+  var fmt = null;
+  function setFormat(example) {
+    fmt = Code128.makeFormat(example);
+    try { localStorage.setItem(FORMAT_KEY, example); } catch (e) {}
+  }
+
   var gbuf = null;
-  // Returns null, or {code (cleaned, "" if it doesn't look like a tyre number), raw, votes}.
+  // Returns null, or {code (cleaned, "" if it doesn't look like a tyre number), raw, votes, method, sure}.
   function readImageData(im) {
     var d = im.data, n = im.width * im.height;
     if (!gbuf || gbuf.length !== n) gbuf = new Uint8Array(n);
     for (var i = 0, j = 0; i < n; i++, j += 4) gbuf[i] = (d[j] * 77 + d[j + 1] * 150 + d[j + 2] * 29) >> 8;
-    var r = Code128.decodeGray(gbuf, im.width, im.height);
-    if (!r) return null;
+    var r = Code128.decodeGray(gbuf, im.width, im.height, { format: fmt });
+    if (!r || !r.code) return null;
     var v = normCode(r.code);
-    return { code: /^[A-Z0-9-]{5,24}$/.test(v) ? v : "", raw: r.code, votes: r.votes };
+    return {
+      code: /^[A-Z0-9-]{5,24}$/.test(v) ? v : "", raw: r.code, votes: r.votes, method: r.method,
+      // sharp reads are checksum-proven; blurred reads must agree on at least 3 separate scan lines
+      sure: r.method === "edges" ? r.votes >= 2 : (r.votes >= 3 && r.score >= 0.9)
+    };
   }
 
   // ---------- live scanner ----------
@@ -730,7 +1085,7 @@ ul.rows li:first-child { border-top: 0; }
   }
 
   function renderDebug() {
-    $("scanDbg").textContent = "decoder v3 · " + (video.videoWidth || 0) + "×" + (video.videoHeight || 0) +
+    $("scanDbg").textContent = "decoder v5 · " + (video.videoWidth || 0) + "×" + (video.videoHeight || 0) +
       " · " + dbg.frames + " frames · last read: " + dbg.last + (dbg.err ? " · " + dbg.err : "");
   }
 
@@ -739,12 +1094,17 @@ ul.rows li:first-child { border-top: 0; }
     setTimeout(function () { g.classList.remove("hit"); }, 350);
   }
 
-  function acceptLive(code, votes) {
-    // Several scan lines agreeing in one frame is enough; a single line needs a second frame to confirm.
-    if (votes < 3) {
-      if (code === cand.code) cand.n++; else cand = { code: code, n: 1 };
-      if (cand.n < READS_NEEDED) return;
-    }
+  function acceptLive(r) {
+    // A sharp read needs 2 scan lines in one frame, or 2 frames. A blurred read needs 2 frames that
+    // each agree on 3 or more scan lines.
+    var code = r.code;
+    if (r.method === "match" && !r.sure) return;
+    var t = Date.now();
+    if (code === cand.code && t - (cand.t || 0) < 2500) cand.n++; else cand = { code: code, n: 1 };
+    cand.t = t;
+    var enough = r.method === "edges" ? (r.sure || cand.n >= READS_NEEDED) : cand.n >= READS_NEEDED;
+    if (!enough) return;
+    var blurred = r.method === "match";
     cand = { code: "", n: 0 };
     var now = Date.now();
     if (now - lastAccept < 900) return;
@@ -763,7 +1123,7 @@ ul.rows li:first-child { border-top: 0; }
       $("scanStatus").textContent = "All 4 scanned. Check the numbers, then save.";
       $("saveBtn").scrollIntoView({ block: "center" });
     } else {
-      $("scanMsg").textContent = code + " added." + (other ? " " + other + "." : "") + " Next tyre.";
+      $("scanMsg").textContent = code + " added" + (blurred ? " (blurred read, check it)" : "") + "." + (other ? " " + other + "." : "") + " Next tyre.";
     }
   }
 
@@ -772,15 +1132,15 @@ ul.rows li:first-child { border-top: 0; }
     var W = video.videoWidth, H = video.videoHeight;
     if (W && H) {
       // Decode the centre square of the frame, which is what the on-screen box shows.
-      var side = Math.min(W, H), out = Math.min(side, 1080);
+      var side = Math.min(W, H), out = Math.min(side, 960);
       if (work.width !== out) { work.width = out; work.height = out; }
       wctx.drawImage(video, (W - side) / 2, (H - side) / 2, side, side, 0, 0, out, out);
       try {
         var r = readImageData(wctx.getImageData(0, 0, out, out));
         dbg.frames++; dbg.err = "";
         if (r) {
-          dbg.last = r.raw + " (" + r.votes + " lines)";
-          if (r.code) acceptLive(r.code, r.votes);
+          dbg.last = r.raw + " (" + (r.method === "edges" ? "sharp" : "blurred") + ", " + r.votes + " lines)";
+          if (r.code) acceptLive(r);
         }
       } catch (e) { dbg.err = String((e && e.message) || e).slice(0, 80); }
     }
@@ -832,7 +1192,7 @@ ul.rows li:first-child { border-top: 0; }
       }
     } catch (e) {}
     scanning = true;
-    $("scanMsg").textContent = "Fill the box with the sticker, bars level or upright.";
+    $("scanMsg").textContent = "Fill the box with the sticker, bars level or upright. Hold steady.";
     tick();
   }
 
@@ -888,19 +1248,19 @@ ul.rows li:first-child { border-top: 0; }
     st.className = "status"; st.textContent = "Reading the photo…";
     try {
       // Try a few sizes: the decoder likes each thin bar to be a few pixels wide.
-      var sizes = [2400, 1400, 800], r = null;
-      for (var i = 0; i < sizes.length && !(r && r.code && r.votes >= 2); i++) {
+      var sizes = [2000, 1400, 1000, 700], r = null;
+      for (var i = 0; i < sizes.length && !r; i++) {
         var c = await fileToCanvas(file, sizes[i]);
         var got = readImageData(c.getContext("2d").getImageData(0, 0, c.width, c.height));
-        if (got && got.code && (!r || got.votes > r.votes)) r = got;
+        if (got && got.code && got.sure) r = got;
       }
-      if (!r || !r.code || r.votes < 2) {
+      if (!r) {
         st.className = "status bad";
-        st.textContent = "Couldn't read the barcode in that photo. Fill the frame with the sticker, keep it sharp and the bars level, or type the number.";
+        st.textContent = "Couldn't read the barcode in that photo. Fill the frame with the sticker and keep the bars level, or type the number.";
         return;
       }
       var res = addToSet(r.code);
-      st.textContent = res === "added" ? r.code + " added from the photo." : res === "dup" ? r.code + " is already on this kart's list." : "This kart already has 4. Save it first.";
+      st.textContent = res === "added" ? r.code + " added from the photo" + (r.method === "match" ? " (blurred read, check it)." : ".") : res === "dup" ? r.code + " is already on this kart's list." : "This kart already has 4. Save it first.";
     } catch (e) {
       st.className = "status bad";
       st.textContent = "That photo couldn't be opened. Try again.";
@@ -972,7 +1332,18 @@ ul.rows li:first-child { border-top: 0; }
     toast("List cleared.");
   });
 
+  $("formatInput").addEventListener("change", function () {
+    var v = normCode(this.value) || DEFAULT_FORMAT;
+    this.value = v; setFormat(v);
+    $("formatHint").textContent = fmt ? "Saved. Blurred stickers are read as " + v.replace(/[0-9]/g, "#") + "." : "That example can't be used. Blurred stickers won't be read.";
+  });
+
   // ---------- start ----------
+  (function () {
+    var ex = DEFAULT_FORMAT;
+    try { ex = localStorage.getItem(FORMAT_KEY) || DEFAULT_FORMAT; } catch (e) {}
+    $("formatInput").value = ex; setFormat(ex);
+  })();
   load();
   renderAll();
 })();
