@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <style>
-/* Layout idea: one phone-width column, a pit-board header, two tabs, one big amber action. */
+/* Layout idea: one phone-width column, a pit-board header, four tabs, one big amber action per tab. */
 :root {
   --bg: #EEF0F2;
   --surface: #FFFFFF;
@@ -18,8 +18,9 @@
   --line: #D5D9DF;
   --accent: #F5B700;
   --accent-ink: #14181F;
-  --ok: #1B7F4B;
-  --bad: #C2321F;
+  --ok: #1B7F4B; --ok-bg: #DDF3E6;
+  --warn: #9A5B00; --warn-bg: #FFEFCF;
+  --bad: #C2321F; --bad-bg: #FBE3DF;
   --display: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
   --body: "Barlow", -apple-system, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -28,84 +29,84 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #12151A; --surface: #1C2027; --ink: #F1F3F5; --muted: #9AA3AF; --line: #2E343D;
-    --accent: #FFC629; --accent-ink: #14181F; --ok: #4CC38A; --bad: #FF7A66;
+    --accent: #FFC629; --accent-ink: #14181F;
+    --ok: #4CC38A; --ok-bg: #17382A; --warn: #FFC266; --warn-bg: #40300F; --bad: #FF7A66; --bad-bg: #40201B;
     color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; }
-body {
-  background: var(--bg); color: var(--ink);
-  font-family: var(--body); font-size: 16px; line-height: 1.4;
-  -webkit-text-size-adjust: 100%;
-}
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.4; -webkit-text-size-adjust: 100%; }
 .app { max-width: 520px; margin: 0 auto; padding: 16px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
 header { display: flex; flex-direction: column; gap: 4px; }
 h1 { font-family: var(--display); font-weight: 700; font-size: 30px; line-height: 1; text-transform: uppercase; margin: 0; }
 .summary { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 .summary strong { color: var(--ink); font-weight: 600; }
 .badge { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: 12px; }
-.tabs { display: grid; grid-template-columns: repeat(2, 1fr); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
-.tabs button {
-  font-family: var(--display); font-weight: 600; font-size: 18px; text-transform: uppercase; letter-spacing: .03em;
-  background: none; border: 0; color: var(--muted); padding: 10px 4px; cursor: pointer; border-bottom: 3px solid transparent;
-}
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.tabs button { font-family: var(--display); font-weight: 600; font-size: 18px; text-transform: uppercase; letter-spacing: .03em; background: none; border: 0; color: var(--muted); padding: 10px 2px; cursor: pointer; border-bottom: 3px solid transparent; }
 .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
 .panel { display: flex; flex-direction: column; gap: 14px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
 label, .label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .field { display: flex; flex-direction: column; gap: 6px; }
-input[type="text"], input[type="search"] {
+input[type="text"], input[type="search"], select, textarea {
   font: inherit; font-size: 18px; color: var(--ink); background: var(--bg);
   border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; min-width: 0;
 }
+textarea { font-family: var(--mono); font-size: 14px; min-height: 120px; }
 input.kart { font-family: var(--display); font-weight: 700; font-size: 32px; padding: 6px 12px; }
 input.code { font-family: var(--mono); letter-spacing: .04em; text-transform: uppercase; }
 .hint { font-size: 13px; color: var(--muted); margin: 0; }
-.btn {
-  font-family: var(--display); font-weight: 700; font-size: 20px; text-transform: uppercase; letter-spacing: .03em;
-  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
-  border-radius: 8px; padding: 10px 14px; cursor: pointer;
-}
+.btn { font-family: var(--display); font-weight: 700; font-size: 20px; text-transform: uppercase; letter-spacing: .03em; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 10px 14px; cursor: pointer; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .btn.big { font-size: 26px; padding: 18px 14px; width: 100%; }
 .btn.danger { color: var(--bad); }
 .btn.small { font-size: 15px; padding: 5px 10px; }
 .btn:disabled { opacity: .5; cursor: default; }
-button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .row { display: flex; gap: 8px; align-items: stretch; }
-.row > input { flex: 1; }
+.row > input, .row > select { flex: 1; }
 .status { font-size: 15px; color: var(--muted); min-height: 1.4em; margin: 0; }
 .status.bad { color: var(--bad); }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .actions .btn { flex: 1 1 auto; }
 h2 { font-family: var(--display); font-weight: 600; font-size: 20px; text-transform: uppercase; letter-spacing: .03em; margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { font-family: var(--display); font-weight: 600; font-size: 17px; padding: 5px 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; cursor: pointer; }
+.chips button.done { border-color: var(--ok); color: var(--ok); }
 .set-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .count { font-family: var(--display); font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
-.slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.slots span { height: 8px; border-radius: 4px; background: var(--line); }
-.slots span.on { background: var(--ok); }
-ul.set { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-ul.set li { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; }
-ul.set .n { font-family: var(--display); font-weight: 700; font-size: 20px; color: var(--muted); text-align: center; }
-ul.set .note { grid-column: 2 / -1; font-size: 13px; color: var(--bad); margin: 0; }
+.slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.slots span { font-family: var(--display); font-weight: 700; font-size: 13px; text-align: center; border-radius: 5px; padding: 1px 0; background: var(--line); color: var(--muted); }
+.slots span.on { background: var(--ok); color: #fff; }
+ul.set { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+ul.set li { display: grid; grid-template-columns: 30px 1fr auto; gap: 6px 8px; align-items: center; }
+ul.set .n { font-family: var(--display); font-weight: 700; font-size: 18px; color: var(--muted); text-align: center; }
+ul.set .under { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tag { font-size: 13px; font-weight: 600; border-radius: 6px; padding: 1px 7px; border: 1px solid transparent; }
+.tag.ok { background: var(--ok-bg); color: var(--ok); }
+.tag.warn { background: var(--warn-bg); color: var(--warn); }
+.tag.bad { background: var(--bad-bg); color: var(--bad); }
 ul.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-ul.rows li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); min-width: 0; }
+ul.rows li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 0; border-top: 1px solid var(--line); min-width: 0; }
 ul.rows li:first-child { border-top: 0; }
 .tcode { font-family: var(--mono); font-size: 15px; letter-spacing: .03em; overflow-wrap: anywhere; flex: 1; min-width: 0; }
-.kartno { font-family: var(--display); font-weight: 700; font-size: 20px; min-width: 44px; }
+.what { font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--muted); min-width: 30px; }
+.kartno { font-family: var(--display); font-weight: 700; font-size: 20px; }
 .time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .group { display: flex; flex-direction: column; gap: 4px; }
-.group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; border-bottom: 2px solid var(--ink); padding-bottom: 4px; }
-.group-head .n { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1; }
-.group-head .c { color: var(--muted); font-size: 14px; }
+.group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 2px solid var(--ink); padding-bottom: 4px; }
+.group-head .n { font-family: var(--display); font-weight: 700; font-size: 24px; line-height: 1; }
 .empty { color: var(--muted); margin: 0; }
-.toast {
-  position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 488px; margin: 0 auto;
-  background: var(--ink); color: var(--surface); border-radius: 10px; padding: 12px 14px; font-weight: 500;
-  box-shadow: 0 6px 24px rgba(0,0,0,.25); z-index: 60;
-}
+.verdict { border-radius: 10px; padding: 14px; border: 1px solid var(--line); border-left-width: 8px; background: var(--surface); display: flex; flex-direction: column; gap: 4px; }
+.verdict .big { font-family: var(--display); font-weight: 700; font-size: 32px; line-height: 1.05; }
+.verdict.ok { border-color: var(--ok); background: var(--ok-bg); }
+.verdict.warn { border-color: var(--warn); background: var(--warn-bg); }
+.verdict.bad { border-color: var(--bad); background: var(--bad-bg); }
+.verdict p { margin: 0; }
+.toast { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 488px; margin: 0 auto; background: var(--ink); color: var(--surface); border-radius: 10px; padding: 12px 14px; font-weight: 500; box-shadow: 0 6px 24px rgba(0,0,0,.25); z-index: 60; }
 .overlay { position: fixed; inset: 0; background: rgba(10,12,16,.6); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
 .dialog { background: var(--surface); color: var(--ink); border-radius: 12px; padding: 18px; max-width: 420px; width: 100%; display: flex; flex-direction: column; gap: 14px; }
 .dialog p { margin: 0; font-size: 17px; }
@@ -114,18 +115,20 @@ ul.rows li:first-child { border-top: 0; }
 .scanner { position: fixed; inset: 0; z-index: 40; background: #0B0D10; color: #F1F3F5; display: flex; flex-direction: column; }
 .scan-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; }
 .scan-top .who { font-family: var(--display); font-weight: 700; font-size: 26px; text-transform: uppercase; line-height: 1; }
-.scan-top .count { font-size: 30px; }
+.scan-top .count { font-size: 26px; }
 .viewport { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: #000; }
 .viewport video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .guide { position: absolute; left: 50%; top: 50%; width: 84%; aspect-ratio: 1; max-height: 92%; transform: translate(-50%, -50%); border: 3px solid var(--accent); border-radius: 12px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.35); pointer-events: none; }
 .guide.hit { border-color: #4CC38A; }
 .scan-bottom { padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #2E343D; border-radius: 8px; overflow: hidden; }
+.seg button { font-family: var(--display); font-weight: 700; font-size: 20px; text-transform: uppercase; background: #1C2027; color: #9AA3AF; border: 0; padding: 10px 4px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .scan-msg { margin: 0; font-size: 17px; min-height: 1.4em; }
 .scan-dbg { margin: 0; font-size: 12px; color: #6B7480; overflow-wrap: anywhere; }
-.scan-codes { margin: 0; font-family: var(--mono); font-size: 14px; color: #9AA3AF; overflow-wrap: anywhere; min-height: 1.4em; }
 .scanner .btn { background: #1C2027; color: #F1F3F5; border-color: #2E343D; }
-.scanner .slots span { background: #2E343D; }
-.scanner .slots span.on { background: #4CC38A; }
+.scanner .slots span { background: #2E343D; color: #9AA3AF; }
+.scanner .slots span.on { background: #4CC38A; color: #0B0D10; }
 </style>
 </head>
 <body>
@@ -133,35 +136,48 @@ ul.rows li:first-child { border-top: 0; }
   <header>
     <h1>Kart Tyre Scanner</h1>
     <div class="summary">
-      <span><strong id="sumTyres">0</strong> tyres</span>
-      <span><strong id="sumKarts">0</strong> karts</span>
+      <span><strong id="sumKarts">0</strong> karts in <strong id="sumSession">this session</strong></span>
       <span class="badge" id="storeBadge">Saved on this phone</span>
-      <span class="badge">v5</span>
+      <span class="badge">v6</span>
     </div>
   </header>
 
   <div class="tabs" role="tablist">
     <button id="tab-scan" role="tab" aria-selected="true" aria-controls="panel-scan">Scan</button>
-    <button id="tab-list" role="tab" aria-selected="false" aria-controls="panel-list">List and export</button>
+    <button id="tab-check" role="tab" aria-selected="false" aria-controls="panel-check">Check</button>
+    <button id="tab-list" role="tab" aria-selected="false" aria-controls="panel-list">List</button>
+    <button id="tab-setup" role="tab" aria-selected="false" aria-controls="panel-setup">Setup</button>
   </div>
 
   <!-- SCAN -->
   <section class="panel" id="panel-scan" role="tabpanel" aria-labelledby="tab-scan">
     <div class="card">
       <div class="field">
+        <label for="sessionSel">Session</label>
+        <div class="row">
+          <select id="sessionSel"></select>
+          <button type="button" class="btn" id="sessionNew">New</button>
+        </div>
+        <p class="hint">The session name is the title on the export, for example Super Heats 1.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field">
         <label for="kartInput">Kart number</label>
-        <input class="kart" id="kartInput" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 1">
-        <p class="hint" id="kartCount">Enter the kart, scan its 4 tyres, then save.</p>
+        <input class="kart" id="kartInput" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 295">
+        <div class="chips" id="kartChips"></div>
+        <p class="hint" id="kartCount">Enter the kart, scan its 4 tyres, chassis and engine, then save.</p>
       </div>
 
       <div class="set-head">
         <h2 id="setTitle">This kart</h2>
-        <span class="count" id="setCount">0 of 4</span>
+        <span class="count" id="setCount">0 of 6</span>
       </div>
-      <div class="slots" id="slots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <div class="slots" id="slots" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>CH</span><span>EN</span></div>
       <ul class="set" id="setList"></ul>
 
-      <button type="button" class="btn primary big" id="scanBtn">Scan 4 tyres</button>
+      <button type="button" class="btn primary big" id="scanBtn">Scan kart</button>
       <p class="status" id="scanStatus" role="status"></p>
       <div class="actions">
         <button type="button" class="btn" id="saveBtn" disabled>Save kart</button>
@@ -176,23 +192,54 @@ ul.rows li:first-child { border-top: 0; }
           <input class="code" id="manualCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="L70886226">
           <button type="button" class="btn" id="manualAdd">Add</button>
         </div>
+        <p class="hint">Chassis and engine numbers can be typed straight into their rows above.</p>
       </div>
       <button type="button" class="btn" id="photoBtn">Or take a photo of the sticker</button>
-      <p class="hint">A photo uses the iPhone camera at full quality, which helps when the live scanner can't focus. Fill the frame with the sticker.</p>
       <input id="photoInput" type="file" accept="image/*" capture="environment" hidden>
     </div>
 
     <div class="card">
-      <h2>Last saved</h2>
+      <h2>Saved in this session</h2>
       <ul class="rows" id="recentList"></ul>
       <p class="empty" id="recentEmpty">Nothing saved yet.</p>
+    </div>
+  </section>
+
+  <!-- CHECK -->
+  <section class="panel" id="panel-check" role="tabpanel" aria-labelledby="tab-check" hidden>
+    <div class="card">
+      <h2>Who does it belong to?</h2>
+      <button type="button" class="btn primary big" id="checkScanBtn">Scan to look up</button>
+      <p class="status" id="checkStatus" role="status"></p>
+      <div class="field">
+        <label for="checkCode">Or type the number</label>
+        <div class="row">
+          <input class="code" id="checkCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false">
+          <button type="button" class="btn" id="checkBtn">Look up</button>
+        </div>
+      </div>
+    </div>
+    <div id="verdict" hidden></div>
+    <div class="card" id="checkLogCard" hidden>
+      <h2>Looked up just now</h2>
+      <ul class="rows" id="checkLog"></ul>
     </div>
   </section>
 
   <!-- LIST -->
   <section class="panel" id="panel-list" role="tabpanel" aria-labelledby="tab-list" hidden>
     <div class="card">
-      <h2>Export</h2>
+      <div class="field">
+        <label for="sessionSel2">Session</label>
+        <select id="sessionSel2"></select>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn" id="sessionRename">Rename</button>
+        <button type="button" class="btn danger" id="sessionDelete">Delete session</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="exportTitle">Export</h2>
       <div class="actions">
         <button type="button" class="btn primary" id="shareBtn" hidden>Share CSV</button>
         <button type="button" class="btn" id="downloadBtn">Download CSV</button>
@@ -202,20 +249,45 @@ ul.rows li:first-child { border-top: 0; }
     </div>
     <div class="card">
       <div class="field">
-        <label for="filterInput">Find a kart or tyre number</label>
-        <input id="filterInput" type="search" autocomplete="off" placeholder="12 or L7088">
+        <label for="filterInput">Find a kart, driver or number</label>
+        <input id="filterInput" type="search" autocomplete="off" placeholder="295, Riley or L7088">
       </div>
       <div id="groups" class="panel"></div>
-      <p class="empty" id="listEmpty">No karts saved yet.</p>
+      <p class="empty" id="listEmpty">No karts saved in this session yet.</p>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section class="panel" id="panel-setup" role="tabpanel" aria-labelledby="tab-setup" hidden>
+    <div class="card">
+      <h2>Distribution list</h2>
+      <p class="status" id="rosterStatus">No list loaded. Scans are recorded but not checked.</p>
       <div class="actions">
-        <button type="button" class="btn danger" id="clearBtn">Clear all</button>
+        <button type="button" class="btn primary" id="rosterFileBtn">Import file</button>
+        <button type="button" class="btn" id="rosterPasteBtn">Paste list</button>
       </div>
+      <input id="rosterFile" type="file" accept=".csv,.txt,text/csv,text/plain" hidden>
+      <div class="field" id="rosterPasteBox" hidden>
+        <label for="rosterText">Paste the list here</label>
+        <textarea id="rosterText" spellcheck="false" placeholder="kart,driver,type,number&#10;295,RILEY,wet,L70809879&#10;295,RILEY,chassis,250209"></textarea>
+        <button type="button" class="btn" id="rosterPasteGo">Load pasted list</button>
+      </div>
+      <p class="hint">One row per number: kart, driver, type (wet, dry, extra, chassis, engine), number.</p>
+      <ul class="rows" id="rosterList"></ul>
+      <div class="actions" id="rosterActions" hidden>
+        <button type="button" class="btn" id="rosterExport">Download current list</button>
+        <button type="button" class="btn danger" id="rosterClear">Remove list</button>
+      </div>
+    </div>
+    <div class="card" id="corrCard" hidden>
+      <h2>Sheet corrections</h2>
+      <ul class="rows" id="corrList"></ul>
     </div>
     <div class="card">
       <div class="field">
         <label for="formatInput">Example tyre number for this event</label>
         <input class="code" id="formatInput" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false">
-        <p class="hint" id="formatHint">Used to read blurred or faded stickers. Letters are taken as fixed, digits can vary.</p>
+        <p class="hint" id="formatHint">Tells tyres apart from chassis and engine numbers, and helps read blurred stickers. Letters are fixed, digits can vary.</p>
       </div>
     </div>
   </section>
@@ -225,16 +297,20 @@ ul.rows li:first-child { border-top: 0; }
 <div class="scanner" id="scanner" hidden>
   <div class="scan-top">
     <span class="who" id="scanWho">Kart</span>
-    <span class="count" id="scanCount">0 of 4</span>
+    <span class="count" id="scanCount"></span>
   </div>
   <div class="viewport" id="viewport">
     <video playsinline muted autoplay></video>
     <div class="guide" id="guide"></div>
   </div>
   <div class="scan-bottom">
-    <div class="slots" id="scanSlots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <div class="seg" id="modeSeg" role="group" aria-label="What you are scanning">
+      <button type="button" data-mode="tyre" aria-pressed="true">Tyres</button>
+      <button type="button" data-mode="chassis" aria-pressed="false">Chassis</button>
+      <button type="button" data-mode="engine" aria-pressed="false">Engine</button>
+    </div>
+    <div class="slots" id="scanSlots" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>CH</span><span>EN</span></div>
     <p class="scan-msg" id="scanMsg" role="status">Starting the camera…</p>
-    <p class="scan-codes" id="scanCodes"></p>
     <p class="scan-dbg" id="scanDbg"></p>
     <div class="actions">
       <button type="button" class="btn" id="zoomBtn" hidden>Zoom</button>
@@ -249,6 +325,7 @@ ul.rows li:first-child { border-top: 0; }
 <div class="overlay" id="overlay" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogText">
     <p id="dialogText"></p>
+    <input id="dialogInput" type="text" autocomplete="off" hidden>
     <div class="actions">
       <button type="button" class="btn primary" id="dialogOk">OK</button>
       <button type="button" class="btn" id="dialogAlt" hidden></button>
@@ -260,283 +337,10 @@ ul.rows li:first-child { border-top: 0; }
 <script>
 (function () {
   "use strict";
-  var $ = function (id) { return document.getElementById(id); };
-  var LIST_KEY = "kart-tyres-v1";
-  var DRAFT_KEY = "kart-tyres-draft-v1";
-  var FORMAT_KEY = "kart-tyres-format-v1";
-  var DEFAULT_FORMAT = "L70886226";
-  var SET_SIZE = 4;
-  var READS_NEEDED = 2;      // identical reads in a row before a code is accepted
 
-  var state = {
-    items: new Map(),        // code -> {code, kart, ts}
-    set: [],                 // codes scanned for the kart in hand
-    filter: ""
-  };
-
-  // ---------- helpers ----------
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
-    });
-  }
-  function normCode(s) { return String(s || "").toUpperCase().replace(/\s+/g, "").trim(); }
-  function normKart(s) { return String(s || "").toUpperCase().replace(/\s+/g, "").replace(/^#/, "").trim(); }
-  function hhmm(ts) {
-    var d = new Date(ts);
-    return isNaN(d) ? "" : String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-  }
-  function kartSort(a, b) { return a.localeCompare(b, undefined, { numeric: true }); }
-  function allItems() { return Array.from(state.items.values()); }
-  function tyresOnKart(kart) { return allItems().filter(function (t) { return t.kart === kart; }); }
-  function plural(n) { return n + (n === 1 ? " tyre" : " tyres"); }
-  function kartNow() { return normKart($("kartInput").value); }
-
-  var toastTimer = null;
-  function toast(msg) {
-    var el = $("toast");
-    el.textContent = msg; el.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.hidden = true; }, 3200);
-  }
-
-  // In-page dialog. Resolves true (main button), "alt" (second button) or false (cancel).
-  var dialogResolve = null;
-  function ask(text, okLabel, altLabel) {
-    $("dialogText").textContent = text;
-    $("dialogOk").textContent = okLabel || "OK";
-    $("dialogAlt").hidden = !altLabel;
-    $("dialogAlt").textContent = altLabel || "";
-    $("overlay").hidden = false;
-    $("dialogOk").focus();
-    return new Promise(function (res) { dialogResolve = res; });
-  }
-  function closeDialog(v) { $("overlay").hidden = true; if (dialogResolve) { var r = dialogResolve; dialogResolve = null; r(v); } }
-  $("dialogOk").addEventListener("click", function () { closeDialog(true); });
-  $("dialogAlt").addEventListener("click", function () { closeDialog("alt"); });
-  $("dialogCancel").addEventListener("click", function () { closeDialog(false); });
-
-  // ---------- storage (this phone) ----------
-  var storageOk = true;
-  function persist() {
-    try { localStorage.setItem(LIST_KEY, JSON.stringify(allItems())); storageOk = true; }
-    catch (e) { storageOk = false; }
-    $("storeBadge").textContent = storageOk ? "Saved on this phone" : "Not saving. Export before closing";
-  }
-  function persistDraft() {
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ kart: $("kartInput").value, set: state.set })); } catch (e) {}
-  }
-  function load() {
-    try {
-      var arr = JSON.parse(localStorage.getItem(LIST_KEY) || "[]");
-      if (Array.isArray(arr)) arr.forEach(function (t) { if (t && t.code && t.kart) state.items.set(t.code, t); });
-    } catch (e) {}
-    try {
-      var d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
-      if (d && Array.isArray(d.set)) {
-        state.set = d.set.map(normCode).slice(0, SET_SIZE);
-        $("kartInput").value = d.kart || "";
-      }
-    } catch (e) {}
-    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
-  }
-
-  // ---------- render ----------
-  function renderAll() { renderSummary(); renderKart(); renderSet(); renderRecent(); renderList(); }
-
-  function renderSummary() {
-    var items = allItems();
-    $("sumTyres").textContent = items.length;
-    $("sumKarts").textContent = new Set(items.map(function (t) { return t.kart; })).size;
-  }
-
-  function renderKart() {
-    var kart = kartNow();
-    var el = $("kartCount");
-    if (!kart) el.textContent = "Enter the kart, scan its 4 tyres, then save.";
-    else {
-      var n = tyresOnKart(kart).length;
-      el.textContent = n ? "Kart " + kart + " already has " + plural(n) + " saved." : "Kart " + kart + " has nothing saved yet.";
-    }
-    $("setTitle").textContent = kart ? "Kart " + kart : "This kart";
-    $("saveBtn").textContent = kart ? "Save kart " + kart : "Save kart";
-  }
-
-  function otherKartNote(code) {
-    var cur = state.items.get(code);
-    return cur && cur.kart !== kartNow() ? "Already saved on kart " + cur.kart : "";
-  }
-
-  function renderSet() {
-    var n = state.set.length, full = n >= SET_SIZE;
-    $("setCount").textContent = n + " of " + SET_SIZE;
-    Array.prototype.forEach.call($("slots").children, function (s, i) { s.className = i < n ? "on" : ""; });
-    $("setList").innerHTML = state.set.map(function (code, i) {
-      var note = otherKartNote(normCode(code));
-      return "<li>" +
-        '<span class="n">' + (i + 1) + "</span>" +
-        '<input class="code" id="set-code-' + i + '" type="text" data-set-i="' + i + '" value="' + esc(code) + '" aria-label="Tyre ' + (i + 1) + ' number" autocomplete="off" autocapitalize="characters" spellcheck="false">' +
-        '<button type="button" class="btn small danger" data-set-del="' + i + '" aria-label="Remove tyre ' + (i + 1) + '">Remove</button>' +
-        '<p class="note" data-note="' + i + '"' + (note ? "" : " hidden") + ">" + esc(note) + "</p>" +
-        "</li>";
-    }).join("");
-    var scan = $("scanBtn"), save = $("saveBtn");
-    scan.disabled = full;
-    scan.textContent = full ? "4 of 4 scanned" : n ? "Scan the next " + (SET_SIZE - n) : "Scan 4 tyres";
-    scan.classList.toggle("primary", !full);
-    save.disabled = n === 0;
-    save.classList.toggle("primary", full);
-    save.classList.toggle("big", full);
-    $("resetBtn").hidden = n === 0;
-  }
-
-  function renderSetNotes() {
-    state.set.forEach(function (code, i) {
-      var el = document.querySelector('[data-note="' + i + '"]');
-      if (!el) return;
-      var note = otherKartNote(normCode(code));
-      el.textContent = note; el.hidden = !note;
-    });
-  }
-
-  function savedRow(t, showKart) {
-    return "<li>" +
-      (showKart ? '<span class="kartno">' + esc(t.kart) + "</span>" : "") +
-      '<span class="tcode">' + esc(t.code) + "</span>" +
-      '<span class="time">' + esc(hhmm(t.ts)) + "</span>" +
-      '<button type="button" class="btn small danger" data-del="' + esc(t.code) + '" aria-label="Remove ' + esc(t.code) + '">Remove</button>' +
-      "</li>";
-  }
-
-  function renderRecent() {
-    var items = allItems().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }).slice(0, 8);
-    $("recentList").innerHTML = items.map(function (t) { return savedRow(t, true); }).join("");
-    $("recentEmpty").hidden = items.length > 0;
-  }
-
-  function grouped(filter) {
-    var byKart = new Map();
-    allItems().forEach(function (t) {
-      if (filter && t.kart.indexOf(filter) < 0 && t.code.indexOf(filter) < 0) return;
-      if (!byKart.has(t.kart)) byKart.set(t.kart, []);
-      byKart.get(t.kart).push(t);
-    });
-    return Array.from(byKart.keys()).sort(kartSort).map(function (kart) {
-      return { kart: kart, tyres: byKart.get(kart).sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); }) };
-    });
-  }
-
-  function renderList() {
-    var groups = grouped(state.filter);
-    $("groups").innerHTML = groups.map(function (g) {
-      return '<div class="group"><div class="group-head"><span class="n">Kart ' + esc(g.kart) + '</span><span class="c">' +
-        plural(g.tyres.length) + '</span></div><ul class="rows">' +
-        g.tyres.map(function (t) { return savedRow(t, false); }).join("") + "</ul></div>";
-    }).join("");
-    var empty = $("listEmpty");
-    empty.hidden = groups.length > 0;
-    empty.textContent = state.items.size ? "Nothing matches that search." : "No karts saved yet.";
-  }
-
-  // ---------- tabs ----------
-  ["scan", "list"].forEach(function (name) {
-    $("tab-" + name).addEventListener("click", function () {
-      ["scan", "list"].forEach(function (n) {
-        $("tab-" + n).setAttribute("aria-selected", n === name ? "true" : "false");
-        $("panel-" + n).hidden = n !== name;
-      });
-    });
-  });
-
-  // ---------- the kart in hand ----------
-  $("kartInput").addEventListener("input", function () { renderKart(); renderSetNotes(); persistDraft(); });
-
-  // Returns "added", "dup" or "full".
-  function addToSet(raw) {
-    var code = normCode(raw);
-    if (state.set.length >= SET_SIZE) return "full";
-    if (state.set.some(function (c) { return normCode(c) === code; })) return "dup";
-    state.set.push(code);
-    persistDraft(); renderSet();
-    return "added";
-  }
-
-  $("setList").addEventListener("input", function (e) {
-    var i = e.target.getAttribute("data-set-i");
-    if (i === null) return;
-    state.set[+i] = e.target.value;
-    persistDraft(); renderSetNotes();
-  });
-  $("setList").addEventListener("click", function (e) {
-    var b = e.target.closest("[data-set-del]");
-    if (!b) return;
-    state.set.splice(+b.getAttribute("data-set-del"), 1);
-    persistDraft(); renderSet();
-  });
-
-  $("manualAdd").addEventListener("click", function () {
-    var code = normCode($("manualCode").value);
-    if (code.length < 3) { toast("That tyre number looks too short."); return; }
-    var r = addToSet(code);
-    if (r === "added") $("manualCode").value = "";
-    else toast(r === "dup" ? code + " is already on this kart's list." : "This kart already has 4. Save it first.");
-  });
-  $("manualCode").addEventListener("keydown", function (e) { if (e.key === "Enter") $("manualAdd").click(); });
-
-  $("resetBtn").addEventListener("click", async function () {
-    if (await ask("Clear the " + plural(state.set.length) + " scanned for this kart? Saved karts are not touched.", "Clear these")) {
-      state.set = []; persistDraft(); renderSet();
-    }
-  });
-
-  $("saveBtn").addEventListener("click", async function () {
-    var kart = kartNow();
-    if (!kart) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
-    var codes = state.set.map(normCode);
-    if (!codes.length) return;
-    var blank = codes.findIndex(function (c) { return c.length < 3; });
-    if (blank >= 0) { toast("Tyre " + (blank + 1) + " has no number. Type it or remove it."); var el = $("set-code-" + blank); if (el) el.focus(); return; }
-    if (new Set(codes).size !== codes.length) { toast("The same tyre number is listed twice."); return; }
-    if (codes.length < SET_SIZE) {
-      if (!(await ask("Only " + codes.length + " of " + SET_SIZE + " tyres scanned for kart " + kart + ". Save anyway?", "Save " + codes.length))) return;
-    }
-    var already = tyresOnKart(kart).filter(function (t) { return codes.indexOf(t.code) < 0; });
-    var replace = false;
-    if (already.length) {
-      var a = await ask("Kart " + kart + " already has " + plural(already.length) + " saved. Replace them with this scan, or keep both?", "Replace", "Keep both");
-      if (a === false) return;
-      replace = a === true;
-    }
-    var moved = codes.filter(function (c) { var cur = state.items.get(c); return cur && cur.kart !== kart; });
-    if (moved.length) {
-      var list = moved.map(function (c) { return c + " (kart " + state.items.get(c).kart + ")"; }).join(", ");
-      if (!(await ask("Already saved on another kart: " + list + ". Move to kart " + kart + "?", "Move"))) return;
-    }
-    if (replace) already.forEach(function (t) { state.items.delete(t.code); });
-    var now = Date.now();
-    codes.forEach(function (c, i) { state.items.set(c, { code: c, kart: kart, ts: now + i }); });
-    persist();
-    state.set = [];
-    $("kartInput").value = "";
-    persistDraft();
-    renderAll();
-    $("scanStatus").className = "status"; $("scanStatus").textContent = "";
-    toast(storageOk ? "Kart " + kart + " saved with " + plural(codes.length) + ". Enter the next kart."
-                    : "Kart " + kart + " is listed, but this phone isn't storing data. Export before closing.");
-    window.scrollTo(0, 0);
-    $("kartInput").focus();
-  });
-
-  document.addEventListener("click", async function (e) {
-    var b = e.target.closest("[data-del]");
-    if (!b) return;
-    var t = state.items.get(b.getAttribute("data-del"));
-    if (!t) return;
-    if (!(await ask("Remove " + t.code + " from kart " + t.kart + "?", "Remove"))) return;
-    state.items.delete(t.code); persist(); renderAll();
-  });
-
-  // ---------- barcode decoder (built in, no network needed) ----------
+  // =====================================================================================
+  // Barcode decoder (built in, no network needed)
+  // =====================================================================================
   // Code 128 reader for tyre stickers. Works on a grayscale image, needs no quiet zone.
   //   Code128.decodeGray(gray, W, H, {format, strong}) -> { code, votes, method, score } | null
   // Two stages:
@@ -1033,32 +837,652 @@ ul.rows li:first-child { border-top: 0; }
     return { decodeGray: decodeGray, makeFormat: makeFormat };
   })();
 
-  // The number format the blur-tolerant stage expects, taken from an example tyre number.
+  // =====================================================================================
+  // Core: rules with no screen involved (list parsing, matching, exports)
+  // =====================================================================================
+  var Core = (function () {
+    function normCode(s) { return String(s || "").toUpperCase().replace(/\s+/g, "").trim(); }
+    function normKart(s) { return String(s || "").toUpperCase().replace(/\s+/g, "").replace(/^#/, "").trim(); }
+    function isDigit(c) { return c >= "0" && c <= "9"; }
+
+    // True when code has the same layout as the example: digits where it has digits, the same
+    // letters where it has letters.
+    function fitsShape(code, example) {
+      if (!example) return true;
+      if (code.length !== example.length) return false;
+      for (var i = 0; i < example.length; i++) {
+        if (isDigit(example[i])) { if (!isDigit(code[i])) return false; }
+        else if (code[i] !== example[i]) return false;
+      }
+      return true;
+    }
+    function shapeText(example) { return example.replace(/[0-9]/g, "#"); }
+
+    // Sheets often drop the letter prefix (70886225 for L70886225). Put it back.
+    function fixTyre(code, example) {
+      if (!example || fitsShape(code, example)) return code;
+      var i = 0;
+      while (i < example.length && !isDigit(example[i])) i++;
+      var prefix = example.slice(0, i);
+      if (prefix && /^[0-9]+$/.test(code) && fitsShape(prefix + code, example)) return prefix + code;
+      return code;
+    }
+
+    function oneOff(a, b) {
+      if (a.length !== b.length) return false;
+      var d = 0;
+      for (var i = 0; i < a.length; i++) if (a[i] !== b[i] && ++d > 1) return false;
+      return d === 1;
+    }
+
+    function splitLine(line, delim) {
+      var out = [], cur = "", q = false;
+      for (var i = 0; i < line.length; i++) {
+        var c = line[i];
+        if (q) { if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+        else if (c === '"') q = true;
+        else if (c === delim) { out.push(cur); cur = ""; }
+        else cur += c;
+      }
+      out.push(cur);
+      return out.map(function (s) { return s.trim(); });
+    }
+
+    function typeOf(t) {
+      t = String(t || "").toLowerCase();
+      if (t.indexOf("ch") === 0) return "chassis";
+      if (t.indexOf("en") === 0 || t.indexOf("seal") >= 0) return "engine";
+      if (t.indexOf("w") === 0) return "wet";
+      if (t.indexOf("d") === 0 || t.indexOf("sl") === 0) return "dry";
+      return "extra";
+    }
+
+    // Reads "kart,driver,type,number" rows. Returns {roster, skipped}.
+    function parseList(text, example) {
+      var lines = String(text || "").split(/\r?\n/).filter(function (l) { return l.trim(); });
+      if (!lines.length) return { roster: [], skipped: 0 };
+      var delim = lines[0].indexOf("\t") >= 0 ? "\t" : (lines[0].split(";").length > lines[0].split(",").length ? ";" : ",");
+      var col = { kart: 0, driver: 1, type: 2, number: 3 }, start = 0;
+      var head = splitLine(lines[0], delim).map(function (h) { return h.toLowerCase(); });
+      if (head.some(function (h) { return h === "kart" || h === "number" || h === "type"; })) {
+        start = 1;
+        head.forEach(function (h, i) {
+          if (h === "kart" || h === "no" || h === "kart no") col.kart = i;
+          else if (h === "driver" || h === "name") col.driver = i;
+          else if (h === "type" || h === "item") col.type = i;
+          else if (h === "number" || h === "code" || h === "barcode") col.number = i;
+        });
+      }
+      var by = {}, roster = [], skipped = 0;
+      for (var li = start; li < lines.length; li++) {
+        var f = splitLine(lines[li], delim);
+        var kart = normKart(f[col.kart]), driver = String(f[col.driver] || "").trim().toUpperCase();
+        var num = normCode(f[col.number]), key = kart || normKart(driver);
+        if (!key || !num) { skipped++; continue; }
+        var e = by[key];
+        if (!e) { e = by[key] = { key: key, kart: kart, driver: driver, wet: [], dry: [], extra: [], chassis: "", engine: "" }; roster.push(e); }
+        var t = typeOf(f[col.type]);
+        if (t === "chassis" || t === "engine") { e[t] = num; continue; }
+        num = fixTyre(num, example);
+        if (e.wet.indexOf(num) < 0 && e.dry.indexOf(num) < 0 && e.extra.indexOf(num) < 0) e[t].push(num);
+      }
+      return { roster: roster, skipped: skipped };
+    }
+
+    function label(e) { return e.kart ? e.kart + " " + e.driver : e.driver; }
+    function findEntry(roster, kartText) {
+      var k = normKart(kartText);
+      if (!k) return null;
+      for (var i = 0; i < roster.length; i++) if (roster[i].key === k || roster[i].kart === k || normKart(roster[i].driver) === k) return roster[i];
+      return null;
+    }
+    var SUBS = ["wet", "dry", "extra"], SUBNAME = { wet: "Wet", dry: "Dry", extra: "Extra" };
+
+    // Who the list says a number belongs to: {entry, kind: tyre|chassis|engine, sub} or null.
+    function findOwner(roster, code) {
+      for (var i = 0; i < roster.length; i++) {
+        var e = roster[i];
+        for (var s = 0; s < 3; s++) if (e[SUBS[s]].indexOf(code) >= 0) return { entry: e, kind: "tyre", sub: SUBS[s] };
+        if (e.chassis === code) return { entry: e, kind: "chassis" };
+        if (e.engine === code) return { entry: e, kind: "engine" };
+      }
+      return null;
+    }
+    // Every listed tyre exactly one character away from code.
+    function nearAll(roster, code) {
+      var out = [];
+      roster.forEach(function (e) {
+        SUBS.forEach(function (s) { e[s].forEach(function (c) { if (oneOff(c, code)) out.push({ entry: e, sub: s, code: c }); }); });
+      });
+      return out;
+    }
+
+    // Verdict for one scanned number on one kart.
+    // state: nolist | ok | near | other | unknown | diff.  near carries sheet (what the list has) and sub.
+    function judge(roster, kartText, kind, code) {
+      if (!roster.length) return { state: "nolist", text: "" };
+      var e = findEntry(roster, kartText), owner = findOwner(roster, code);
+      if (kind === "tyre") {
+        if (owner && owner.kind === "tyre" && e && owner.entry === e) return { state: "ok", text: "OK · " + SUBNAME[owner.sub], sub: owner.sub };
+        if (owner) return { state: "other", text: (owner.kind === "tyre" ? "Issued to " : "Is the " + owner.kind + " of ") + label(owner.entry), owner: owner };
+        if (e) {
+          for (var s = 0; s < 3; s++) for (var i = 0; i < e[SUBS[s]].length; i++) {
+            if (oneOff(e[SUBS[s]][i], code)) return { state: "near", text: "1 digit off sheet: " + e[SUBS[s]][i], sheet: e[SUBS[s]][i], sub: SUBS[s] };
+          }
+        }
+        return { state: "unknown", text: e ? "Not on the list" : "Not on the list, kart not listed" };
+      }
+      var want = e ? e[kind] : "";
+      if (want && want === code) return { state: "ok", text: "OK" };
+      if (owner) return { state: "other", text: (owner.kind === kind ? "Listed for " : "Is the " + owner.kind + " of ") + label(owner.entry), owner: owner };
+      if (!want) return { state: "unknown", text: e ? "No " + kind + " on the list for this kart" : "Kart not listed" };
+      if (oneOff(want, code)) return { state: "near", text: "1 digit off sheet: " + want, sheet: want };
+      return { state: "diff", text: "Sheet says " + want, sheet: want };
+    }
+
+    // Replaces what the sheet had with what was scanned. Returns true if something changed.
+    function applyCorrection(roster, kartText, kind, from, to) {
+      var e = findEntry(roster, kartText);
+      if (!e) return false;
+      if (kind !== "tyre") { if (e[kind] !== from) return false; e[kind] = to; return true; }
+      for (var s = 0; s < 3; s++) { var i = e[SUBS[s]].indexOf(from); if (i >= 0) { e[SUBS[s]][i] = to; return true; } }
+      return false;
+    }
+
+    // Where a scanned number goes. mode = what the selector says (tyre|chassis|engine).
+    // Returns {target, note}. target null means "don't file it", note says why.
+    function route(code, mode, roster, example) {
+      var owner = findOwner(roster, code);
+      var tyre = owner ? owner.kind === "tyre" : fitsShape(code, example);
+      if (tyre) {
+        if (mode === "tyre") return { target: "tyre", note: "" };
+        return { target: null, note: code + " is a tyre number. Switch to Tyres to add it." };
+      }
+      if (owner && owner.kind !== mode) return { target: owner.kind, note: "The list has " + code + " as " + (owner.kind === "engine" ? "an engine" : "a chassis") + " number, filed there." };
+      if (mode === "tyre") return { target: null, note: code + " is not a tyre number (expected " + shapeText(example) + "). Switch to Chassis or Engine." };
+      return { target: mode, note: "" };
+    }
+
+    function q(s) { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+    function kartSort(a, b) { return String(a.kart).localeCompare(String(b.kart), undefined, { numeric: true }); }
+    function iso(ts) { var d = new Date(ts); return isNaN(d) ? "" : d.toISOString(); }
+    function stateWord(j) {
+      return { nolist: "not checked", ok: "OK", near: "ONE DIGIT OFF", other: "WRONG KART", unknown: "NOT ON LIST", diff: "MISMATCH" }[j.state] +
+        (j.state === "ok" && j.sub ? " " + j.sub : "") + (j.state !== "ok" && j.state !== "nolist" && j.text ? " (" + j.text + ")" : "");
+    }
+    // One flat list of everything recorded for a kart: [{item, code, via, kind}]
+    function itemsOf(rec) {
+      var out = rec.tyres.map(function (t, i) { return { item: "Tyre " + (i + 1), kind: "tyre", code: t.code, via: t.via }; });
+      if (rec.chassis) out.push({ item: "Chassis", kind: "chassis", code: rec.chassis.code, via: rec.chassis.via });
+      if (rec.engine) out.push({ item: "Engine", kind: "engine", code: rec.engine.code, via: rec.engine.via });
+      return out;
+    }
+    function driverOf(roster, rec) { var e = findEntry(roster, rec.kart); return e ? e.driver : (rec.driver || ""); }
+
+    function exportCsv(session, roster, corrections, now) {
+      var L = [];
+      L.push(["Session", q(session.title)].join(","));
+      L.push(["Exported", q(new Date(now).toLocaleString())].join(","));
+      L.push(["Distribution list", roster.length ? roster.length + " karts loaded" : "not loaded"].join(","));
+      L.push("");
+      L.push("kart,driver,item,number,list_check,read,saved_at");
+      session.karts.slice().sort(kartSort).forEach(function (rec) {
+        var e = findEntry(roster, rec.kart), kartNo = e ? (e.kart || "") : rec.kart;
+        itemsOf(rec).forEach(function (it) {
+          var check = stateWord(judge(roster, rec.kart, it.kind, it.code));
+          corrections.forEach(function (c) { if (c.to === it.code && c.kind === it.kind && e && c.driver === e.driver) check += " (sheet corrected from " + c.from + ")"; });
+          L.push([q(kartNo), q(driverOf(roster, rec)), it.item, q(it.code), q(check), it.via || "", iso(rec.ts)].join(","));
+        });
+      });
+      if (corrections.length) {
+        L.push(""); L.push("Sheet corrections");
+        L.push("kart,driver,item,sheet_had,corrected_to,read,time");
+        corrections.forEach(function (c) { L.push([q(c.kart), q(c.driver), c.kind, q(c.from), q(c.to), c.via || "", iso(c.ts)].join(",")); });
+      }
+      return L.join("\n") + "\n";
+    }
+
+    function exportText(session, roster) {
+      var L = [session.title, ""];
+      session.karts.slice().sort(kartSort).forEach(function (rec) {
+        var e = findEntry(roster, rec.kart), flags = [];
+        var parts = ["Tyres " + (rec.tyres.map(function (t) { return t.code; }).join(", ") || "none")];
+        if (rec.chassis) parts.push("Chassis " + rec.chassis.code);
+        if (rec.engine) parts.push("Engine " + rec.engine.code);
+        itemsOf(rec).forEach(function (it) {
+          var j = judge(roster, rec.kart, it.kind, it.code);
+          if (j.state !== "ok" && j.state !== "nolist") flags.push(it.item + " " + it.code + ": " + j.text);
+        });
+        L.push((e ? label(e) : "Kart " + rec.kart) + ": " + parts.join(" | "));
+        flags.forEach(function (f) { L.push("  ! " + f); });
+      });
+      return L.join("\n") + "\n";
+    }
+
+    function rosterCsv(roster) {
+      var L = ["kart,driver,type,number"];
+      roster.forEach(function (e) {
+        SUBS.forEach(function (s) { e[s].forEach(function (c) { L.push([q(e.kart), q(e.driver), s, q(c)].join(",")); }); });
+        if (e.chassis) L.push([q(e.kart), q(e.driver), "chassis", q(e.chassis)].join(","));
+        if (e.engine) L.push([q(e.kart), q(e.driver), "engine", q(e.engine)].join(","));
+      });
+      return L.join("\n") + "\n";
+    }
+
+    return {
+      normCode: normCode, normKart: normKart, fitsShape: fitsShape, shapeText: shapeText, oneOff: oneOff, parseList: parseList,
+      label: label, findEntry: findEntry, findOwner: findOwner, nearAll: nearAll, judge: judge, applyCorrection: applyCorrection,
+      route: route, itemsOf: itemsOf, exportCsv: exportCsv, exportText: exportText, rosterCsv: rosterCsv, kartSort: kartSort, SUBNAME: SUBNAME
+    };
+  })();
+
+  // =====================================================================================
+  // App
+  // =====================================================================================
+  var $ = function (id) { return document.getElementById(id); };
+  var STORE_KEY = "kart-scan-v2", DRAFT_KEY = "kart-scan-draft-v2";
+  var OLD_LIST_KEY = "kart-tyres-v1", OLD_FORMAT_KEY = "kart-tyres-format-v1";
+  var DEFAULT_FORMAT = "L70886226";
+  var SET_SIZE = 4, READS_NEEDED = 2;
+  var normCode = Core.normCode, normKart = Core.normKart;
+
+  // store: everything that must survive a reload
+  var store = { v: 2, sessions: [], current: "", roster: [], corrections: [], format: DEFAULT_FORMAT };
+  // draft: the kart being scanned right now
+  var draft = { kart: "", tyres: [], chassis: null, engine: null };
+  var ui = { filter: "", checks: [] };
   var fmt = null;
-  function setFormat(example) {
-    fmt = Code128.makeFormat(example);
-    try { localStorage.setItem(FORMAT_KEY, example); } catch (e) {}
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function hhmm(ts) { var d = new Date(ts); return isNaN(d) ? "" : String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+  function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function session() { return store.sessions.filter(function (s) { return s.id === store.current; })[0]; }
+  function kartLabel(text) { var e = Core.findEntry(store.roster, text); return e ? Core.label(e) : (normKart(text) ? "Kart " + normKart(text) : "This kart"); }
+  function kartKey(text) { var e = Core.findEntry(store.roster, text); return e ? e.key : normKart(text); }
+
+  var toastTimer = null;
+  function toast(msg) { var el = $("toast"); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.hidden = true; }, 3600); }
+
+  // In-page dialog. ask() resolves true (main button), "alt" (second button) or false (cancel).
+  // askText() resolves the typed text, or null.
+  var dialogResolve = null, dialogWantsText = false;
+  function openDialog(text, okLabel, altLabel, textDefault) {
+    $("dialogText").textContent = text;
+    $("dialogOk").textContent = okLabel || "OK";
+    $("dialogAlt").hidden = !altLabel; $("dialogAlt").textContent = altLabel || "";
+    dialogWantsText = textDefault !== undefined;
+    $("dialogInput").hidden = !dialogWantsText; $("dialogInput").value = dialogWantsText ? textDefault : "";
+    $("overlay").hidden = false;
+    (dialogWantsText ? $("dialogInput") : $("dialogOk")).focus();
+    return new Promise(function (res) { dialogResolve = res; });
+  }
+  function ask(text, okLabel, altLabel) { return openDialog(text, okLabel, altLabel); }
+  function askText(text, def, okLabel) { return openDialog(text, okLabel || "Save", "", def || ""); }
+  function closeDialog(v) {
+    $("overlay").hidden = true;
+    if (!dialogResolve) return;
+    var r = dialogResolve; dialogResolve = null;
+    if (dialogWantsText) r(v === true ? $("dialogInput").value.trim() : null); else r(v);
+  }
+  $("dialogOk").addEventListener("click", function () { closeDialog(true); });
+  $("dialogAlt").addEventListener("click", function () { closeDialog("alt"); });
+  $("dialogCancel").addEventListener("click", function () { closeDialog(false); });
+  $("dialogInput").addEventListener("keydown", function (e) { if (e.key === "Enter") closeDialog(true); });
+
+  // ---------- storage (this phone) ----------
+  var storageOk = true;
+  function persist() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); storageOk = true; } catch (e) { storageOk = false; }
+    $("storeBadge").textContent = storageOk ? "Saved on this phone" : "Not saving. Export before closing";
+  }
+  function persistDraft() { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch (e) {} }
+  function newSession(title) {
+    var s = { id: uid(), title: title, created: Date.now(), karts: [] };
+    store.sessions.push(s); store.current = s.id;
+    return s;
+  }
+  function load() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+      if (raw && raw.v === 2 && Array.isArray(raw.sessions)) {
+        store = raw;
+        store.roster = store.roster || []; store.corrections = store.corrections || []; store.format = store.format || DEFAULT_FORMAT;
+      } else {
+        // first run of this version: carry over the single list the earlier versions kept
+        var old = JSON.parse(localStorage.getItem(OLD_LIST_KEY) || "[]");
+        try { store.format = localStorage.getItem(OLD_FORMAT_KEY) || DEFAULT_FORMAT; } catch (e2) {}
+        if (Array.isArray(old) && old.length) {
+          var s = newSession("Earlier scans"), by = {};
+          old.forEach(function (t) {
+            if (!t || !t.code || !t.kart) return;
+            var r = by[t.kart];
+            if (!r) { r = by[t.kart] = { kart: t.kart, driver: "", tyres: [], chassis: null, engine: null, ts: t.ts || Date.now() }; s.karts.push(r); }
+            r.tyres.push({ code: t.code, via: "" });
+          });
+        }
+      }
+    } catch (e) {}
+    if (!store.sessions.length) newSession("Session 1");
+    if (!session()) store.current = store.sessions[store.sessions.length - 1].id;
+    try {
+      var d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+      if (d && Array.isArray(d.tyres)) draft = { kart: d.kart || "", tyres: d.tyres.slice(0, SET_SIZE), chassis: d.chassis || null, engine: d.engine || null };
+    } catch (e) {}
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
+    fmt = Code128.makeFormat(store.format);
   }
 
+  // ---------- verdict tags ----------
+  var TAGCLASS = { ok: "ok", near: "warn", other: "bad", unknown: "bad", diff: "bad" };
+  function tagHtml(j) { return j.state === "nolist" ? "" : '<span class="tag ' + TAGCLASS[j.state] + '">' + esc(j.text) + "</span>"; }
+  function flagsOf(rec) {
+    return Core.itemsOf(rec).filter(function (it) { var s = Core.judge(store.roster, rec.kart, it.kind, it.code).state; return s !== "ok" && s !== "nolist"; }).length;
+  }
+
+  // ---------- render ----------
+  function renderAll() { renderSessions(); renderSummary(); renderChips(); renderKart(); renderSet(); renderRecent(); renderList(); renderSetup(); }
+
+  function renderSessions() {
+    var html = store.sessions.map(function (s) { return '<option value="' + esc(s.id) + '"' + (s.id === store.current ? " selected" : "") + ">" + esc(s.title) + " (" + s.karts.length + ")</option>"; }).join("");
+    $("sessionSel").innerHTML = html; $("sessionSel2").innerHTML = html;
+    $("exportTitle").textContent = "Export: " + session().title;
+  }
+  function renderSummary() { $("sumKarts").textContent = session().karts.length; $("sumSession").textContent = session().title; }
+
+  function renderChips() {
+    var done = {};
+    session().karts.forEach(function (r) { done[r.kart] = 1; });
+    $("kartChips").innerHTML = store.roster.map(function (e) {
+      return '<button type="button" data-kart="' + esc(e.kart || e.driver) + '"' + (done[e.key] ? ' class="done"' : "") + ">" + esc(Core.label(e)) + (done[e.key] ? " ✓" : "") + "</button>";
+    }).join("");
+  }
+
+  function renderKart() {
+    var text = $("kartInput").value, key = kartKey(text), el = $("kartCount");
+    if (!key) el.textContent = "Enter the kart, scan its 4 tyres, chassis and engine, then save.";
+    else {
+      var rec = session().karts.filter(function (r) { return r.kart === key; })[0];
+      var onList = store.roster.length ? (Core.findEntry(store.roster, text) ? "" : " Not on the distribution list.") : "";
+      el.textContent = (rec ? kartLabel(text) + " is already saved in this session." : kartLabel(text) + " has nothing saved in this session yet.") + onList;
+    }
+    $("setTitle").textContent = kartLabel(text);
+    $("saveBtn").textContent = key ? "Save " + kartLabel(text) : "Save kart";
+  }
+
+  function setRow(n, id, attrs, value, placeholder, j, extra, removable, removeAttr) {
+    var under = (j ? tagHtml(j) : "") + (extra || "");
+    return "<li>" +
+      '<span class="n">' + n + "</span>" +
+      '<input class="code" id="' + id + '" type="text" ' + attrs + ' value="' + esc(value) + '" placeholder="' + esc(placeholder) + '" aria-label="' + esc(placeholder) + '" autocomplete="off" autocapitalize="characters" spellcheck="false">' +
+      (removable ? '<button type="button" class="btn small danger" ' + removeAttr + ">Remove</button>" : "<span></span>") +
+      (under ? '<div class="under">' + under + "</div>" : "") +
+      "</li>";
+  }
+
+  function draftCount() { return draft.tyres.length + (draft.chassis ? 1 : 0) + (draft.engine ? 1 : 0); }
+
+  function renderSet() {
+    var kart = $("kartInput").value, n = draft.tyres.length, html = "";
+    draft.tyres.forEach(function (t, i) {
+      var code = normCode(t.code), j = code ? Core.judge(store.roster, kart, "tyre", code) : null;
+      var fix = j && j.state === "near" ? '<button type="button" class="btn small" data-fix="tyre:' + i + '">Use scan, fix sheet</button>' : "";
+      var blur = t.via === "blurred" && !(j && j.state === "ok") ? '<span class="tag warn">Blurred read, check it</span>' : "";
+      html += setRow(i + 1, "set-code-" + i, 'data-set-i="' + i + '"', t.code, "Tyre " + (i + 1) + " number", j, blur + fix, true, 'data-set-del="' + i + '"');
+    });
+    ["chassis", "engine"].forEach(function (kind) {
+      var v = draft[kind], code = v ? normCode(v.code) : "", j = code ? Core.judge(store.roster, kart, kind, code) : null;
+      var fix = j && j.state === "near" ? '<button type="button" class="btn small" data-fix="' + kind + ':0">Use scan, fix sheet</button>' : "";
+      html += setRow(kind === "chassis" ? "CH" : "EN", "set-" + kind, 'data-set-kind="' + kind + '"', v ? v.code : "", kind === "chassis" ? "Chassis number" : "Engine number", j, fix, !!v, 'data-set-clear="' + kind + '"');
+    });
+    $("setList").innerHTML = html;
+    var total = draftCount();
+    $("setCount").textContent = total + " of 6";
+    var on = [n > 0, n > 1, n > 2, n > 3, !!draft.chassis, !!draft.engine];
+    [$("slots"), $("scanSlots")].forEach(function (box) { Array.prototype.forEach.call(box.children, function (s, i) { s.className = on[i] ? "on" : ""; }); });
+    var full = total >= 6, scan = $("scanBtn"), save = $("saveBtn");
+    scan.textContent = full ? "All 6 scanned" : total ? "Scan the rest" : "Scan kart";
+    scan.disabled = full;
+    scan.classList.toggle("primary", !full);
+    save.disabled = total === 0;
+    save.classList.toggle("primary", full); save.classList.toggle("big", full);
+    $("resetBtn").hidden = total === 0;
+  }
+
+  function recSummary(rec) {
+    var f = flagsOf(rec);
+    return plural(rec.tyres.length, "tyre") + (rec.chassis ? " · chassis" : "") + (rec.engine ? " · engine" : "") +
+      (f ? ' <span class="tag bad">' + plural(f, "flag") + "</span>" : (store.roster.length ? ' <span class="tag ok">All match</span>' : ""));
+  }
+
+  function renderRecent() {
+    var recs = session().karts.slice().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }).slice(0, 8);
+    $("recentList").innerHTML = recs.map(function (r) {
+      return '<li><span class="kartno">' + esc(kartLabel(r.kart).replace(/^Kart /, "")) + '</span><span class="tcode" style="font-family:inherit">' + recSummary(r) + '</span><span class="time">' + esc(hhmm(r.ts)) + "</span></li>";
+    }).join("");
+    $("recentEmpty").hidden = recs.length > 0;
+  }
+
+  function renderList() {
+    var f = ui.filter, recs = session().karts.slice().sort(Core.kartSort).filter(function (r) {
+      if (!f) return true;
+      var hay = (kartLabel(r.kart) + " " + Core.itemsOf(r).map(function (i) { return i.code; }).join(" ")).toUpperCase();
+      return hay.indexOf(f) >= 0;
+    });
+    $("groups").innerHTML = recs.map(function (r) {
+      return '<div class="group"><div class="group-head"><span class="n">' + esc(kartLabel(r.kart)) + '</span><span class="time">' + esc(hhmm(r.ts)) + "</span>" +
+        '<button type="button" class="btn small danger" data-del-kart="' + esc(r.kart) + '">Remove</button></div><ul class="rows">' +
+        Core.itemsOf(r).map(function (it) {
+          return '<li><span class="what">' + (it.kind === "tyre" ? "T" + it.item.slice(5) : it.kind === "chassis" ? "CH" : "EN") + '</span><span class="tcode">' + esc(it.code) + "</span>" +
+            tagHtml(Core.judge(store.roster, r.kart, it.kind, it.code)) + (it.via === "blurred" ? '<span class="tag warn">Blurred</span>' : "") + "</li>";
+        }).join("") + "</ul></div>";
+    }).join("");
+    var empty = $("listEmpty");
+    empty.hidden = recs.length > 0;
+    empty.textContent = session().karts.length ? "Nothing matches that search." : "No karts saved in this session yet.";
+  }
+
+  function renderSetup() {
+    var n = store.roster.length, tyres = 0;
+    store.roster.forEach(function (e) { tyres += e.wet.length + e.dry.length + e.extra.length; });
+    $("rosterStatus").textContent = n ? plural(n, "kart") + " and " + plural(tyres, "tyre") + " loaded. Scans are checked against this list." : "No list loaded. Scans are recorded but not checked.";
+    $("rosterActions").hidden = !n;
+    $("rosterList").innerHTML = store.roster.map(function (e) {
+      return '<li><span class="kartno">' + esc(Core.label(e)) + '</span><span class="time">' + e.wet.length + " wet · " + e.dry.length + " dry" + (e.extra.length ? " · " + e.extra.length + " extra" : "") +
+        " · CH " + esc(e.chassis || "none") + " · EN " + esc(e.engine || "none") + "</span></li>";
+    }).join("");
+    $("corrCard").hidden = !store.corrections.length;
+    $("corrList").innerHTML = store.corrections.map(function (c) {
+      return '<li><span class="kartno">' + esc(c.kart ? c.kart + " " + c.driver : c.driver) + '</span><span class="tcode">' + esc(c.kind) + ": " + esc(c.from) + " → " + esc(c.to) + '</span><span class="time">' + esc(hhmm(c.ts)) + "</span></li>";
+    }).join("");
+    $("formatInput").value = store.format;
+  }
+
+  // ---------- tabs ----------
+  var TABS = ["scan", "check", "list", "setup"];
+  TABS.forEach(function (name) {
+    $("tab-" + name).addEventListener("click", function () {
+      TABS.forEach(function (t) { $("tab-" + t).setAttribute("aria-selected", t === name ? "true" : "false"); $("panel-" + t).hidden = t !== name; });
+    });
+  });
+
+  // ---------- sessions ----------
+  function switchSession(id) { store.current = id; persist(); renderAll(); }
+  $("sessionSel").addEventListener("change", function () { switchSession(this.value); });
+  $("sessionSel2").addEventListener("change", function () { switchSession(this.value); });
+  $("sessionNew").addEventListener("click", async function () {
+    var t = await askText("Name the new session. This is the title on its export.", "", "Create");
+    if (t === null) return;
+    if (!t) { toast("Give the session a name."); return; }
+    var cur = session();
+    if (store.sessions.length === 1 && !cur.karts.length && cur.title === "Session 1") cur.title = t; else newSession(t);
+    persist(); renderAll();
+    toast("Now scanning into " + t + ".");
+  });
+  $("sessionRename").addEventListener("click", async function () {
+    var t = await askText("Rename this session.", session().title, "Rename");
+    if (!t) return;
+    session().title = t; persist(); renderAll();
+  });
+  $("sessionDelete").addEventListener("click", async function () {
+    var s = session();
+    if (!(await ask("Delete " + s.title + " and its " + plural(s.karts.length, "kart") + "? Export first if you need the record. This can't be undone.", "Delete session"))) return;
+    store.sessions = store.sessions.filter(function (x) { return x.id !== s.id; });
+    if (!store.sessions.length) newSession("Session 1"); else store.current = store.sessions[store.sessions.length - 1].id;
+    persist(); renderAll();
+  });
+
+  // ---------- the kart in hand ----------
+  $("kartInput").addEventListener("input", function () { draft.kart = this.value; persistDraft(); renderKart(); renderSet(); });
+  $("kartChips").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    $("kartInput").value = b.getAttribute("data-kart"); draft.kart = $("kartInput").value;
+    persistDraft(); renderKart(); renderSet();
+  });
+
+  // Files one number into the kart in hand. mode: tyre|chassis|engine. Returns {ok, kind, msg, flagged}.
+  function placeScan(rawCode, via, mode) {
+    var code = normCode(rawCode);
+    var r = Core.route(code, mode, store.roster, store.format);
+    if (!r.target) return { ok: false, msg: r.note };
+    if (r.target === "tyre") {
+      if (draft.tyres.some(function (t) { return normCode(t.code) === code; })) return { ok: false, dup: true, msg: code + " already scanned. Move to the next tyre." };
+      if (draft.tyres.length >= SET_SIZE) return { ok: false, msg: "This kart already has 4 tyres. Remove one first, or switch to Chassis or Engine." };
+      draft.tyres.push({ code: code, via: via });
+    } else {
+      if (draft[r.target] && normCode(draft[r.target].code) === code) return { ok: false, dup: true, msg: code + " already scanned as the " + r.target + "." };
+      draft[r.target] = { code: code, via: via };
+    }
+    persistDraft(); renderSet();
+    var j = Core.judge(store.roster, $("kartInput").value, r.target, code);
+    var what = r.target === "tyre" ? "Tyre " + draft.tyres.length : r.target === "chassis" ? "Chassis" : "Engine";
+    return { ok: true, kind: r.target, flagged: j.state !== "ok" && j.state !== "nolist",
+      msg: what + " " + code + (j.text ? ": " + j.text : " added") + "." + (via === "blurred" && j.state !== "ok" ? " Blurred read, check it." : "") + (r.note ? " " + r.note : "") };
+  }
+
+  $("setList").addEventListener("input", function (e) {
+    var i = e.target.getAttribute("data-set-i"), kind = e.target.getAttribute("data-set-kind");
+    if (i !== null) { draft.tyres[+i].code = e.target.value; draft.tyres[+i].via = "typed"; }
+    else if (kind) { var v = normCode(e.target.value); draft[kind] = v ? { code: e.target.value, via: "typed" } : null; }
+    else return;
+    persistDraft();
+  });
+  // re-check against the list once typing in a row is finished
+  $("setList").addEventListener("change", function () { renderSet(); });
+  $("setList").addEventListener("click", async function (e) {
+    var del = e.target.closest("[data-set-del]"), clr = e.target.closest("[data-set-clear]"), fix = e.target.closest("[data-fix]");
+    if (del) { draft.tyres.splice(+del.getAttribute("data-set-del"), 1); persistDraft(); renderSet(); return; }
+    if (clr) { draft[clr.getAttribute("data-set-clear")] = null; persistDraft(); renderSet(); return; }
+    if (!fix) return;
+    var parts = fix.getAttribute("data-fix").split(":"), kind = parts[0];
+    var item = kind === "tyre" ? draft.tyres[+parts[1]] : draft[kind];
+    if (!item) return;
+    var kart = $("kartInput").value, code = normCode(item.code), j = Core.judge(store.roster, kart, kind, code);
+    if (j.state !== "near") return;
+    var e2 = Core.findEntry(store.roster, kart);
+    var text = "The sheet has " + j.sheet + " for " + Core.label(e2) + ". You scanned " + code + ". Replace the sheet's number with the scanned one?";
+    if (item.via === "blurred") text = "This was a blurred read, so the scanner may be the one that's a digit out. Check the printed number on the sticker really says " + code + ". " + text;
+    if (item.via === "typed") text = "This number was typed, so check it against the sticker first. " + text;
+    if (!(await ask(text, "Fix sheet"))) return;
+    if (Core.applyCorrection(store.roster, kart, kind, j.sheet, code)) {
+      store.corrections.push({ kart: e2.kart, driver: e2.driver, kind: kind, from: j.sheet, to: code, via: item.via || "", ts: Date.now() });
+      persist(); renderAll();
+      toast("Sheet corrected: " + j.sheet + " is now " + code + ".");
+    }
+  });
+
+  $("manualAdd").addEventListener("click", function () {
+    if (!kartKey($("kartInput").value)) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
+    var code = normCode($("manualCode").value);
+    if (code.length < 3) { toast("That number looks too short."); return; }
+    var r = placeScan(code, "typed", "tyre");
+    if (r.ok) $("manualCode").value = "";
+    toast(r.msg);
+  });
+  $("manualCode").addEventListener("keydown", function (e) { if (e.key === "Enter") $("manualAdd").click(); });
+
+  function clearDraft() { draft = { kart: "", tyres: [], chassis: null, engine: null }; $("kartInput").value = ""; persistDraft(); }
+
+  $("resetBtn").addEventListener("click", async function () {
+    if (await ask("Clear what's been scanned for this kart? Saved karts are not touched.", "Clear these")) {
+      draft.tyres = []; draft.chassis = null; draft.engine = null; persistDraft(); renderSet();
+    }
+  });
+
+  $("saveBtn").addEventListener("click", async function () {
+    var text = $("kartInput").value, key = kartKey(text);
+    if (!key) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
+    var tyres = draft.tyres.map(function (t) { return { code: normCode(t.code), via: t.via || "" }; });
+    var blank = tyres.findIndex(function (t) { return t.code.length < 3; });
+    if (blank >= 0) { toast("Tyre " + (blank + 1) + " has no number. Type it or remove it."); var el = $("set-code-" + blank); if (el) el.focus(); return; }
+    var codes = tyres.map(function (t) { return t.code; });
+    if (new Set(codes).size !== codes.length) { toast("The same tyre number is listed twice."); return; }
+    var chassis = draft.chassis && normCode(draft.chassis.code) ? { code: normCode(draft.chassis.code), via: draft.chassis.via || "" } : null;
+    var engine = draft.engine && normCode(draft.engine.code) ? { code: normCode(draft.engine.code), via: draft.engine.via || "" } : null;
+    if (!tyres.length && !chassis && !engine) return;
+    var who = kartLabel(text), missing = [];
+    if (tyres.length < SET_SIZE) missing.push(plural(SET_SIZE - tyres.length, "tyre"));
+    if (!chassis) missing.push("the chassis");
+    if (!engine) missing.push("the engine");
+    if (missing.length && !(await ask(who + " is missing " + missing.join(", ").replace(/, ([^,]*)$/, " and $1") + ". Save anyway?", "Save anyway"))) return;
+
+    var entry = Core.findEntry(store.roster, text);
+    var rec = { kart: key, driver: entry ? entry.driver : "", tyres: tyres, chassis: chassis, engine: engine, ts: Date.now() };
+    var flags = flagsOf(rec);
+    if (flags && !(await ask(plural(flags, "item") + " on " + who + " " + (flags === 1 ? "doesn't" : "don't") + " match the distribution list. Save the record as scanned?", "Save as scanned"))) return;
+
+    var s = session(), existing = s.karts.filter(function (r) { return r.kart === key; })[0];
+    if (existing) {
+      var a = await ask(who + " is already saved in " + s.title + ". Replace that record with this scan, or add this scan to it?", "Replace", "Add to it");
+      if (a === false) return;
+      if (a === "alt") {
+        existing.tyres.forEach(function (t) { if (codes.indexOf(t.code) < 0) rec.tyres.push(t); });
+        rec.chassis = rec.chassis || existing.chassis; rec.engine = rec.engine || existing.engine;
+      }
+    }
+    var moved = [];
+    s.karts.forEach(function (r) { if (r.kart !== key) r.tyres.forEach(function (t) { if (codes.indexOf(t.code) >= 0) moved.push(t.code + " (" + kartLabel(r.kart) + ")"); }); });
+    if (moved.length) {
+      if (!(await ask("Already recorded on another kart in this session: " + moved.join(", ") + ". Move to " + who + "?", "Move"))) return;
+      s.karts.forEach(function (r) { if (r.kart !== key) r.tyres = r.tyres.filter(function (t) { return codes.indexOf(t.code) < 0; }); });
+    }
+    s.karts = s.karts.filter(function (r) { return r.kart !== key; });
+    s.karts.push(rec);
+    persist(); clearDraft(); renderAll();
+    $("scanStatus").className = "status"; $("scanStatus").textContent = "";
+    toast(storageOk ? who + " saved to " + s.title + ". Enter the next kart." : who + " is listed, but this phone isn't storing data. Export before closing.");
+    window.scrollTo(0, 0);
+  });
+
+  document.addEventListener("click", async function (e) {
+    var b = e.target.closest("[data-del-kart]");
+    if (!b) return;
+    var key = b.getAttribute("data-del-kart");
+    if (!(await ask("Remove the record for " + kartLabel(key) + " from " + session().title + "?", "Remove"))) return;
+    session().karts = session().karts.filter(function (r) { return r.kart !== key; });
+    persist(); renderAll();
+  });
+
+  // ---------- reading pixels ----------
   var gbuf = null;
-  // Returns null, or {code (cleaned, "" if it doesn't look like a tyre number), raw, votes, method, sure}.
-  function readImageData(im) {
+  // Returns null, or {code, raw, votes, method, sure}. useFormat false = sharp mode only.
+  function readImageData(im, useFormat) {
     var d = im.data, n = im.width * im.height;
     if (!gbuf || gbuf.length !== n) gbuf = new Uint8Array(n);
     for (var i = 0, j = 0; i < n; i++, j += 4) gbuf[i] = (d[j] * 77 + d[j + 1] * 150 + d[j + 2] * 29) >> 8;
-    var r = Code128.decodeGray(gbuf, im.width, im.height, { format: fmt });
+    var r = Code128.decodeGray(gbuf, im.width, im.height, { format: useFormat ? fmt : null });
     if (!r || !r.code) return null;
     var v = normCode(r.code);
     return {
-      code: /^[A-Z0-9-]{5,24}$/.test(v) ? v : "", raw: r.code, votes: r.votes, method: r.method,
+      code: /^[A-Z0-9-]{4,24}$/.test(v) ? v : "", raw: r.code, votes: r.votes, method: r.method,
       // sharp reads are checksum-proven; blurred reads must agree on at least 3 separate scan lines
       sure: r.method === "edges" ? r.votes >= 2 : (r.votes >= 3 && r.score >= 0.9)
     };
   }
 
   // ---------- live scanner ----------
-  var scanning = false, stream = null, track = null, tickTimer = null;
-  var cand = { code: "", n: 0 }, lastAccept = 0, lastDupMsg = 0, audio = null, torchOn = false;
+  var scanning = false, purpose = "kart", mode = "tyre", stream = null, track = null, tickTimer = null;
+  var cand = { code: "", n: 0 }, lastAccept = 0, lastNoteAt = 0, audio = null, torchOn = false;
   var zoomLevels = [], zoomIdx = 0;
   var dbg = { frames: 0, last: "none", err: "" };
   var video = document.querySelector("#viewport video");
@@ -1076,55 +1500,68 @@ ul.rows li:first-child { border-top: 0; }
     } catch (e) {}
   }
 
+  var MODEHINT = { tyre: "Point at a tyre sticker.", chassis: "Point at the chassis barcode.", engine: "Point at the engine seal barcode." };
+  function setMode(m) {
+    mode = m; cand = { code: "", n: 0 };
+    Array.prototype.forEach.call($("modeSeg").children, function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-mode") === m ? "true" : "false"); });
+  }
+  function nextMode() {
+    if (draft.tyres.length < SET_SIZE) return "tyre";
+    if (!draft.chassis) return "chassis";
+    if (!draft.engine) return "engine";
+    return null;
+  }
+  $("modeSeg").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    setMode(b.getAttribute("data-mode")); $("scanMsg").textContent = MODEHINT[mode];
+  });
+
   function renderScanner() {
-    var n = state.set.length;
-    $("scanWho").textContent = "Kart " + kartNow();
-    $("scanCount").textContent = n + " of " + SET_SIZE;
-    Array.prototype.forEach.call($("scanSlots").children, function (s, i) { s.className = i < n ? "on" : ""; });
-    $("scanCodes").textContent = state.set.join("  ");
+    if (purpose === "check") { $("scanWho").textContent = "Look up"; $("scanCount").textContent = ""; return; }
+    $("scanWho").textContent = kartLabel($("kartInput").value);
+    $("scanCount").textContent = draftCount() + " of 6";
   }
-
   function renderDebug() {
-    $("scanDbg").textContent = "decoder v5 · " + (video.videoWidth || 0) + "×" + (video.videoHeight || 0) +
-      " · " + dbg.frames + " frames · last read: " + dbg.last + (dbg.err ? " · " + dbg.err : "");
+    $("scanDbg").textContent = "decoder v6 · " + (video.videoWidth || 0) + "×" + (video.videoHeight || 0) + " · " + dbg.frames + " frames · last read: " + dbg.last + (dbg.err ? " · " + dbg.err : "");
   }
+  function flashGuide() { var g = $("guide"); g.classList.add("hit"); setTimeout(function () { g.classList.remove("hit"); }, 350); }
 
-  function flashGuide() {
-    var g = $("guide"); g.classList.add("hit");
-    setTimeout(function () { g.classList.remove("hit"); }, 350);
-  }
-
+  // A read the decoder is confident about, confirmed over time. Sharp: 2 lines in a frame or 2 frames.
+  // Blurred: 2 frames that each agree on 3+ lines.
   function acceptLive(r) {
-    // A sharp read needs 2 scan lines in one frame, or 2 frames. A blurred read needs 2 frames that
-    // each agree on 3 or more scan lines.
-    var code = r.code;
     if (r.method === "match" && !r.sure) return;
     var t = Date.now();
-    if (code === cand.code && t - (cand.t || 0) < 2500) cand.n++; else cand = { code: code, n: 1 };
+    if (r.code === cand.code && t - (cand.t || 0) < 2500) cand.n++; else cand = { code: r.code, n: 1 };
     cand.t = t;
     var enough = r.method === "edges" ? (r.sure || cand.n >= READS_NEEDED) : cand.n >= READS_NEEDED;
     if (!enough) return;
-    var blurred = r.method === "match";
     cand = { code: "", n: 0 };
+    if (t - lastAccept < 900) return;
+    onLiveCode(r.code, r.method === "edges" ? "sharp" : "blurred");
+  }
+
+  function onLiveCode(code, via) {
     var now = Date.now();
-    if (now - lastAccept < 900) return;
-    var res = addToSet(code);
-    if (res === "dup") {
-      if (now - lastDupMsg > 1500) { lastDupMsg = now; $("scanMsg").textContent = code + " already scanned. Move to the next tyre."; beep(300, 120); }
+    if (purpose === "check") { lastAccept = now; beep(1000, 140); stopScanner(); lookup(code, via); return; }
+    var res = placeScan(code, via, mode);
+    if (!res.ok) {
+      if (now - lastNoteAt > 1500) { lastNoteAt = now; $("scanMsg").textContent = res.msg; beep(300, 120); }
       return;
     }
-    if (res !== "added") return;
     lastAccept = now;
-    beep(1000, 140); flashGuide(); renderScanner();
-    var other = otherKartNote(code);
-    if (state.set.length >= SET_SIZE) {
+    beep(res.flagged ? 440 : 1000, res.flagged ? 320 : 140); flashGuide(); renderScanner();
+    var nm = nextMode();
+    if (!nm) {
       stopScanner();
       $("scanStatus").className = "status";
-      $("scanStatus").textContent = "All 4 scanned. Check the numbers, then save.";
+      $("scanStatus").textContent = res.msg + " All 6 scanned. Check them, then save.";
       $("saveBtn").scrollIntoView({ block: "center" });
-    } else {
-      $("scanMsg").textContent = code + " added" + (blurred ? " (blurred read, check it)" : "") + "." + (other ? " " + other + "." : "") + " Next tyre.";
+      return;
     }
+    // stay on the selector's choice while it still has something to do, otherwise move on
+    var stay = (mode === "tyre" && draft.tyres.length < SET_SIZE) || (mode !== "tyre" && res.kind !== mode && !draft[mode]);
+    if (!stay) setMode(nm);
+    $("scanMsg").textContent = res.msg + " Next: " + (mode === "tyre" ? "tyre " + (draft.tyres.length + 1) + " of 4" : mode) + ".";
   }
 
   function tick() {
@@ -1136,7 +1573,7 @@ ul.rows li:first-child { border-top: 0; }
       if (work.width !== out) { work.width = out; work.height = out; }
       wctx.drawImage(video, (W - side) / 2, (H - side) / 2, side, side, 0, 0, out, out);
       try {
-        var r = readImageData(wctx.getImageData(0, 0, out, out));
+        var r = readImageData(wctx.getImageData(0, 0, out, out), purpose === "check" || mode === "tyre");
         dbg.frames++; dbg.err = "";
         if (r) {
           dbg.last = r.raw + " (" + (r.method === "edges" ? "sharp" : "blurred") + ", " + r.votes + " lines)";
@@ -1155,29 +1592,28 @@ ul.rows li:first-child { border-top: 0; }
     try { track.applyConstraints({ advanced: [{ zoom: z }] }).catch(function () {}); } catch (e) {}
   }
 
-  async function startScanner() {
-    if (!kartNow()) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
+  async function startScanner(why) {
+    var statusEl = why === "check" ? $("checkStatus") : $("scanStatus");
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      $("scanStatus").className = "status bad";
-      $("scanStatus").textContent = "This browser can't open the camera. Open the page in Safari, or take a photo of the sticker below.";
+      statusEl.className = "status bad";
+      statusEl.textContent = "This browser can't open the camera. Open the page in Safari, or type the number.";
       return;
     }
+    purpose = why;
     try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); if (audio.state === "suspended") audio.resume(); } catch (e) {}
     cand = { code: "", n: 0 }; torchOn = false; dbg = { frames: 0, last: "none", err: "" };
+    $("modeSeg").hidden = why === "check"; $("scanSlots").hidden = why === "check";
+    if (why !== "check") setMode(nextMode() || "tyre");
     $("scanner").hidden = false;
-    $("torchBtn").hidden = true; $("zoomBtn").hidden = true;
-    $("torchBtn").textContent = "Light on";
+    $("torchBtn").hidden = true; $("zoomBtn").hidden = true; $("torchBtn").textContent = "Light on";
     $("scanMsg").textContent = "Starting the camera…";
     renderScanner(); renderDebug();
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-      });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
     } catch (e) {
       $("scanner").hidden = true;
-      $("scanStatus").className = "status bad";
-      $("scanStatus").textContent = "Camera not available. Allow camera access for this site in Safari, then try again. You can also take a photo of the sticker below.";
+      statusEl.className = "status bad";
+      statusEl.textContent = "Camera not available. Allow camera access for this site in Safari, then try again.";
       return;
     }
     video.srcObject = stream;
@@ -1192,7 +1628,7 @@ ul.rows li:first-child { border-top: 0; }
       }
     } catch (e) {}
     scanning = true;
-    $("scanMsg").textContent = "Fill the box with the sticker, bars level or upright. Hold steady.";
+    $("scanMsg").textContent = why === "check" ? "Point at any tyre, chassis or engine barcode." : MODEHINT[mode] + " Fill the box, hold steady.";
     tick();
   }
 
@@ -1206,39 +1642,34 @@ ul.rows li:first-child { border-top: 0; }
     renderSet();
   }
 
-  $("scanBtn").addEventListener("click", startScanner);
+  $("scanBtn").addEventListener("click", function () {
+    if (!kartKey($("kartInput").value)) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
+    startScanner("kart");
+  });
+  $("checkScanBtn").addEventListener("click", function () { startScanner("check"); });
   $("scanClose").addEventListener("click", stopScanner);
   $("zoomBtn").addEventListener("click", function () { if (zoomLevels.length) setZoom((zoomIdx + 1) % zoomLevels.length); });
   $("torchBtn").addEventListener("click", function () {
-    try {
-      torchOn = !torchOn;
-      track.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(function () {});
-      this.textContent = torchOn ? "Light off" : "Light on";
-    } catch (e) {}
+    try { torchOn = !torchOn; track.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(function () {}); this.textContent = torchOn ? "Light off" : "Light on"; } catch (e) {}
   });
   document.addEventListener("visibilitychange", function () { if (document.hidden && scanning) stopScanner(); });
 
   // ---------- photo fallback ----------
   function fileToCanvas(file, max) {
     return new Promise(function (resolve, reject) {
-      var url = URL.createObjectURL(file);
-      var img = new Image();
+      var url = URL.createObjectURL(file), img = new Image();
       img.onload = function () {
-        var s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-        var c = document.createElement("canvas");
+        var s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
         c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
         c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-        URL.revokeObjectURL(url);
-        resolve(c);
+        URL.revokeObjectURL(url); resolve(c);
       };
       img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("image")); };
       img.src = url;
     });
   }
-
   $("photoBtn").addEventListener("click", function () {
-    if (!kartNow()) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
-    if (state.set.length >= SET_SIZE) { toast("This kart already has 4. Save it first."); return; }
+    if (!kartKey($("kartInput").value)) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
     $("photoInput").value = ""; $("photoInput").click();
   });
   $("photoInput").addEventListener("change", async function () {
@@ -1247,72 +1678,84 @@ ul.rows li:first-child { border-top: 0; }
     var st = $("scanStatus");
     st.className = "status"; st.textContent = "Reading the photo…";
     try {
-      // Try a few sizes: the decoder likes each thin bar to be a few pixels wide.
       var sizes = [2000, 1400, 1000, 700], r = null;
       for (var i = 0; i < sizes.length && !r; i++) {
         var c = await fileToCanvas(file, sizes[i]);
-        var got = readImageData(c.getContext("2d").getImageData(0, 0, c.width, c.height));
+        var got = readImageData(c.getContext("2d").getImageData(0, 0, c.width, c.height), true);
         if (got && got.code && got.sure) r = got;
       }
-      if (!r) {
-        st.className = "status bad";
-        st.textContent = "Couldn't read the barcode in that photo. Fill the frame with the sticker and keep the bars level, or type the number.";
-        return;
+      if (!r) { st.className = "status bad"; st.textContent = "Couldn't read the barcode in that photo. Fill the frame with the sticker and keep the bars level, or type the number."; return; }
+      var via = r.method === "edges" ? "sharp" : "blurred", res = placeScan(r.code, via, "tyre");
+      if (!res.ok && !res.dup && !Core.fitsShape(r.code, store.format)) {
+        // not a tyre and not on the list: the person has to say what it is
+        var a = await ask(r.code + " isn't a tyre number. Save it as the chassis or the engine?", "Chassis", "Engine");
+        if (a === false) { st.textContent = ""; return; }
+        res = placeScan(r.code, via, a === true ? "chassis" : "engine");
       }
-      var res = addToSet(r.code);
-      st.textContent = res === "added" ? r.code + " added from the photo" + (r.method === "match" ? " (blurred read, check it)." : ".") : res === "dup" ? r.code + " is already on this kart's list." : "This kart already has 4. Save it first.";
-    } catch (e) {
-      st.className = "status bad";
-      st.textContent = "That photo couldn't be opened. Try again.";
-    }
+      st.className = res.ok ? "status" : "status bad"; st.textContent = res.msg;
+    } catch (e) { st.className = "status bad"; st.textContent = "That photo couldn't be opened. Try again."; }
   });
 
-  // ---------- list and export ----------
-  $("filterInput").addEventListener("input", function () { state.filter = normKart(this.value); renderList(); });
-
-  function csv() {
-    function q(s) { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
-    var lines = ["kart,tyre_number,saved_at"];
-    grouped("").forEach(function (g) {
-      g.tyres.forEach(function (t) {
-        var d = new Date(t.ts);
-        lines.push([q(t.kart), q(t.code), q(isNaN(d) ? "" : d.toISOString())].join(","));
+  // ---------- check: who does this belong to ----------
+  function lookup(rawCode, via) {
+    var code = normCode(rawCode);
+    if (code.length < 3) { toast("Enter a number to look up."); return; }
+    var owner = Core.findOwner(store.roster, code), cls = "", big = "", lines = [];
+    if (!store.roster.length) { cls = "warn"; big = "No distribution list loaded"; lines.push("Load the list in Setup to see who a number was issued to."); }
+    else if (owner) {
+      cls = "ok"; big = Core.label(owner.entry);
+      lines.push(owner.kind === "tyre" ? Core.SUBNAME[owner.sub] + " tyre on the distribution list" : (owner.kind === "chassis" ? "Chassis" : "Engine") + " on the distribution list");
+    } else {
+      cls = "bad"; big = "Not on the distribution list";
+      Core.nearAll(store.roster, code).forEach(function (n) { lines.push("One digit off " + n.code + ", issued to " + Core.label(n.entry) + " (" + Core.SUBNAME[n.sub].toLowerCase() + ")"); });
+    }
+    if (via === "blurred") lines.push("Blurred read. Check the printed number says " + code + ".");
+    store.sessions.forEach(function (s) {
+      s.karts.forEach(function (r) {
+        Core.itemsOf(r).forEach(function (it) { if (it.code === code) lines.push("Scanned on " + kartLabel(r.kart) + " in " + s.title + " at " + hhmm(r.ts) + " (" + it.item.toLowerCase() + ")"); });
       });
     });
-    return lines.join("\n") + "\n";
+    var v = $("verdict");
+    v.className = "verdict " + cls;
+    v.innerHTML = '<span class="big">' + esc(big) + '</span><span class="tcode">' + esc(code) + "</span>" + lines.map(function (l) { return "<p>" + esc(l) + "</p>"; }).join("");
+    v.hidden = false;
+    ui.checks.unshift({ code: code, text: big, cls: cls });
+    $("checkLog").innerHTML = ui.checks.slice(0, 20).map(function (c) {
+      return '<li><span class="tcode">' + esc(c.code) + '</span><span class="tag ' + (c.cls || "warn") + '">' + esc(c.text) + "</span></li>";
+    }).join("");
+    $("checkLogCard").hidden = false;
+    $("checkStatus").textContent = "";
+    v.scrollIntoView({ block: "nearest" });
   }
-  function plainText() {
-    return grouped("").map(function (g) {
-      return "Kart " + g.kart + ": " + g.tyres.map(function (t) { return t.code; }).join(", ");
-    }).join("\n") + "\n";
-  }
-  function fileName() {
-    var d = new Date();
-    return "kart-tyres-" + d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + ".csv";
-  }
-  function csvFile() { return new File([csv()], fileName(), { type: "text/csv" }); }
+  $("checkBtn").addEventListener("click", function () { lookup($("checkCode").value, "typed"); $("checkCode").value = ""; });
+  $("checkCode").addEventListener("keydown", function (e) { if (e.key === "Enter") $("checkBtn").click(); });
 
-  try {
-    if (navigator.canShare && navigator.canShare({ files: [new File(["a"], "a.csv", { type: "text/csv" })] })) $("shareBtn").hidden = false;
-  } catch (e) {}
+  // ---------- list and export ----------
+  $("filterInput").addEventListener("input", function () { ui.filter = this.value.toUpperCase().trim(); renderList(); });
+
+  function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "session"; }
+  function fileName() { var d = new Date(); return slug(session().title) + "-" + d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + ".csv"; }
+  function sessionCsv() { return Core.exportCsv(session(), store.roster, store.corrections, Date.now()); }
+  function saveFile(name, text) {
+    var url = URL.createObjectURL(new Blob([text], { type: "text/csv" })), a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+  try { if (navigator.canShare && navigator.canShare({ files: [new File(["a"], "a.csv", { type: "text/csv" })] })) $("shareBtn").hidden = false; } catch (e) {}
 
   $("shareBtn").addEventListener("click", function () {
-    if (!state.items.size) { toast("Nothing to share yet."); return; }
-    navigator.share({ files: [csvFile()], title: "Kart tyre list" }).catch(function (e) {
+    if (!session().karts.length) { toast("Nothing to share in this session yet."); return; }
+    navigator.share({ files: [new File([sessionCsv()], fileName(), { type: "text/csv" })], title: session().title }).catch(function (e) {
       if (!e || e.name !== "AbortError") toast("Sharing didn't work. Try Download CSV or Copy as text.");
     });
   });
   $("downloadBtn").addEventListener("click", function () {
-    if (!state.items.size) { toast("Nothing to download yet."); return; }
-    var url = URL.createObjectURL(new Blob([csv()], { type: "text/csv" }));
-    var a = document.createElement("a");
-    a.href = url; a.download = fileName();
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    if (!session().karts.length) { toast("Nothing to download in this session yet."); return; }
+    saveFile(fileName(), sessionCsv());
   });
   $("copyBtn").addEventListener("click", function () {
-    if (!state.items.size) { toast("Nothing to copy yet."); return; }
-    var text = plainText();
+    if (!session().karts.length) { toast("Nothing to copy in this session yet."); return; }
+    var text = Core.exportText(session(), store.roster);
     function fallback() {
       var ta = document.createElement("textarea");
       ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
@@ -1321,31 +1764,50 @@ ul.rows li:first-child { border-top: 0; }
       ta.remove();
       toast(ok ? "Copied. Paste it into WhatsApp or Notes." : "Copy was blocked. Use Download CSV.");
     }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () { toast("Copied. Paste it into WhatsApp or Notes."); }, fallback);
-    } else fallback();
-  });
-  $("clearBtn").addEventListener("click", async function () {
-    if (!state.items.size) { toast("The list is already empty."); return; }
-    if (!(await ask("Clear all " + plural(state.items.size) + "? Export first if you need the record. This can't be undone.", "Clear all"))) return;
-    state.items.clear(); persist(); renderAll();
-    toast("List cleared.");
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { toast("Copied. Paste it into WhatsApp or Notes."); }, fallback);
+    else fallback();
   });
 
+  // ---------- setup: distribution list and format ----------
+  async function loadRoster(text) {
+    var p = Core.parseList(text, store.format);
+    if (!p.roster.length) { toast("No rows found. Each row needs kart, driver, type, number."); return; }
+    if (store.roster.length && !(await ask("Replace the list that's loaded now? Corrections made to it will be dropped.", "Replace list"))) return;
+    store.roster = p.roster; store.corrections = [];
+    persist(); renderAll();
+    $("rosterPasteBox").hidden = true; $("rosterText").value = "";
+    toast(plural(p.roster.length, "kart") + " loaded." + (p.skipped ? " " + plural(p.skipped, "row") + " skipped." : ""));
+  }
+  $("rosterFileBtn").addEventListener("click", function () { $("rosterFile").value = ""; $("rosterFile").click(); });
+  $("rosterFile").addEventListener("change", function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var fr = new FileReader();
+    fr.onload = function () { loadRoster(String(fr.result || "")); };
+    fr.onerror = function () { toast("That file couldn't be read."); };
+    fr.readAsText(file);
+  });
+  $("rosterPasteBtn").addEventListener("click", function () { $("rosterPasteBox").hidden = !$("rosterPasteBox").hidden; });
+  $("rosterPasteGo").addEventListener("click", function () { loadRoster($("rosterText").value); });
+  $("rosterExport").addEventListener("click", function () { saveFile("distribution-list.csv", Core.rosterCsv(store.roster)); });
+  $("rosterClear").addEventListener("click", async function () {
+    if (!(await ask("Remove the distribution list from this phone? Saved scans stay, but they won't be checked.", "Remove list"))) return;
+    store.roster = []; store.corrections = []; persist(); renderAll();
+  });
   $("formatInput").addEventListener("change", function () {
     var v = normCode(this.value) || DEFAULT_FORMAT;
-    this.value = v; setFormat(v);
-    $("formatHint").textContent = fmt ? "Saved. Blurred stickers are read as " + v.replace(/[0-9]/g, "#") + "." : "That example can't be used. Blurred stickers won't be read.";
+    store.format = v; fmt = Code128.makeFormat(v); persist(); renderAll();
+    $("formatHint").textContent = fmt ? "Saved. Tyre numbers look like " + Core.shapeText(v) + "." : "That example can't be used.";
   });
 
   // ---------- start ----------
-  (function () {
-    var ex = DEFAULT_FORMAT;
-    try { ex = localStorage.getItem(FORMAT_KEY) || DEFAULT_FORMAT; } catch (e) {}
-    $("formatInput").value = ex; setFormat(ex);
-  })();
   load();
+  $("kartInput").value = draft.kart;
   renderAll();
+  persist();
+
+  // small handle for testing from the browser console
+  window.__tyre = { place: placeScan, lookup: lookup, store: function () { return store; }, draft: function () { return draft; }, core: Core, live: onLiveCode, setMode: setMode, loadRoster: loadRoster };
 })();
 </script>
 </body>
