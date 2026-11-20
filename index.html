@@ -76,6 +76,9 @@ h2 { font-family: var(--display); font-weight: 600; font-size: 20px; text-transf
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips button { font-family: var(--display); font-weight: 600; font-size: 17px; padding: 5px 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; cursor: pointer; }
 .chips button.done { border-color: var(--ok); color: var(--ok); }
+.chips button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.meta { color: var(--muted); font-size: 14px; }
 .set-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .count { font-family: var(--display); font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
 .slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
@@ -138,7 +141,7 @@ ul.rows li:first-child { border-top: 0; }
     <div class="summary">
       <span><strong id="sumKarts">0</strong> karts in <strong id="sumSession">this session</strong></span>
       <span class="badge" id="storeBadge">Saved on this phone</span>
-      <span class="badge">v6</span>
+      <span class="badge">v7</span>
     </div>
   </header>
 
@@ -170,12 +173,31 @@ ul.rows li:first-child { border-top: 0; }
         <p class="hint" id="kartCount">Enter the kart, scan its 4 tyres, chassis and engine, then save.</p>
       </div>
 
+      <div class="pick">
+        <div class="field">
+          <span class="label" id="setLabel">Set</span>
+          <div class="chips" id="setChips" role="group" aria-labelledby="setLabel">
+            <button type="button" data-v="1" aria-pressed="false">1</button><button type="button" data-v="2" aria-pressed="false">2</button><button type="button" data-v="3" aria-pressed="false">3</button><button type="button" data-v="4" aria-pressed="false">4</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label" id="compLabel">Compound</span>
+          <div class="chips" id="compChips" role="group" aria-labelledby="compLabel">
+            <button type="button" data-v="M" aria-pressed="false">M</button><button type="button" data-v="S" aria-pressed="false">S</button><button type="button" data-v="SS" aria-pressed="false">SS</button><button type="button" data-v="WET" aria-pressed="false">Wet</button>
+          </div>
+        </div>
+      </div>
+
       <div class="set-head">
         <h2 id="setTitle">This kart</h2>
         <span class="count" id="setCount">0 of 6</span>
       </div>
-      <div class="slots" id="slots" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>CH</span><span>EN</span></div>
+      <div class="slots" id="slots" aria-hidden="true"><span>FL</span><span>FR</span><span>RL</span><span>RR</span><span>CH</span><span>EN</span></div>
       <ul class="set" id="setList"></ul>
+      <div class="field">
+        <label for="remarksInput">Remarks</label>
+        <input id="remarksInput" type="text" autocomplete="off" placeholder="Optional">
+      </div>
 
       <button type="button" class="btn primary big" id="scanBtn">Scan kart</button>
       <p class="status" id="scanStatus" role="status"></p>
@@ -290,6 +312,22 @@ ul.rows li:first-child { border-top: 0; }
         <p class="hint" id="formatHint">Tells tyres apart from chassis and engine numbers, and helps read blurred stickers. Letters are fixed, digits can vary.</p>
       </div>
     </div>
+    <div class="card">
+      <h2>Form details</h2>
+      <div class="field">
+        <label for="brandInput">Tyre brand</label>
+        <input id="brandInput" type="text" autocomplete="off" autocapitalize="characters">
+      </div>
+      <div class="field">
+        <label for="enteredInput">Entered by (scrutineer)</label>
+        <input id="enteredInput" type="text" autocomplete="off" autocapitalize="words">
+      </div>
+      <div class="field">
+        <label for="checkedInput">Checked by (chief scrutineer)</label>
+        <input id="checkedInput" type="text" autocomplete="off" autocapitalize="words">
+      </div>
+      <p class="hint">These go at the top of every export.</p>
+    </div>
   </section>
 </div>
 
@@ -309,7 +347,7 @@ ul.rows li:first-child { border-top: 0; }
       <button type="button" data-mode="chassis" aria-pressed="false">Chassis</button>
       <button type="button" data-mode="engine" aria-pressed="false">Engine</button>
     </div>
-    <div class="slots" id="scanSlots" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>CH</span><span>EN</span></div>
+    <div class="slots" id="scanSlots" aria-hidden="true"><span>FL</span><span>FR</span><span>RL</span><span>RR</span><span>CH</span><span>EN</span></div>
     <p class="scan-msg" id="scanMsg" role="status">Starting the camera…</p>
     <p class="scan-dbg" id="scanDbg"></p>
     <div class="actions">
@@ -1003,6 +1041,7 @@ ul.rows li:first-child { border-top: 0; }
       return { target: mode, note: "" };
     }
 
+    var POS = ["FL", "FR", "RL", "RR"], POSNAME = { FL: "Front LH", FR: "Front RH", RL: "Rear LH", RR: "Rear RH" };
     function q(s) { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
     function kartSort(a, b) { return String(a.kart).localeCompare(String(b.kart), undefined, { numeric: true }); }
     function iso(ts) { var d = new Date(ts); return isNaN(d) ? "" : d.toISOString(); }
@@ -1012,26 +1051,34 @@ ul.rows li:first-child { border-top: 0; }
     }
     // One flat list of everything recorded for a kart: [{item, code, via, kind}]
     function itemsOf(rec) {
-      var out = rec.tyres.map(function (t, i) { return { item: "Tyre " + (i + 1), kind: "tyre", code: t.code, via: t.via }; });
+      var out = rec.tyres.map(function (t, i) {
+        var p = t.pos || POS[i] || "";
+        return { item: POSNAME[p] || "Tyre " + (i + 1), pos: p, kind: "tyre", code: t.code, via: t.via };
+      });
       if (rec.chassis) out.push({ item: "Chassis", kind: "chassis", code: rec.chassis.code, via: rec.chassis.via });
       if (rec.engine) out.push({ item: "Engine", kind: "engine", code: rec.engine.code, via: rec.engine.via });
       return out;
     }
     function driverOf(roster, rec) { var e = findEntry(roster, rec.kart); return e ? e.driver : (rec.driver || ""); }
 
-    function exportCsv(session, roster, corrections, now) {
+    function exportCsv(session, roster, corrections, now, meta) {
+      meta = meta || {};
       var L = [];
       L.push(["Session", q(session.title)].join(","));
       L.push(["Exported", q(new Date(now).toLocaleString())].join(","));
+      L.push(["Tyre brand", q(meta.brand || "")].join(","));
+      L.push(["Entered by (scrutineer)", q(meta.enteredBy || "")].join(","));
+      L.push(["Checked by (chief scrutineer)", q(meta.checkedBy || "")].join(","));
       L.push(["Distribution list", roster.length ? roster.length + " karts loaded" : "not loaded"].join(","));
       L.push("");
-      L.push("kart,driver,item,number,list_check,read,saved_at");
+      L.push("kart,driver,set,compound,item,number,list_check,read,remarks,saved_at");
       session.karts.slice().sort(kartSort).forEach(function (rec) {
         var e = findEntry(roster, rec.kart), kartNo = e ? (e.kart || "") : rec.kart;
         itemsOf(rec).forEach(function (it) {
           var check = stateWord(judge(roster, rec.kart, it.kind, it.code));
           corrections.forEach(function (c) { if (c.to === it.code && c.kind === it.kind && e && c.driver === e.driver) check += " (sheet corrected from " + c.from + ")"; });
-          L.push([q(kartNo), q(driverOf(roster, rec)), it.item, q(it.code), q(check), it.via || "", iso(rec.ts)].join(","));
+          var tyre = it.kind === "tyre";
+          L.push([q(kartNo), q(driverOf(roster, rec)), tyre ? q(rec.set || "") : "", tyre ? q(rec.compound || "") : "", it.item, q(it.code), q(check), it.via || "", q(rec.remarks || ""), iso(rec.ts)].join(","));
         });
       });
       if (corrections.length) {
@@ -1042,18 +1089,26 @@ ul.rows li:first-child { border-top: 0; }
       return L.join("\n") + "\n";
     }
 
-    function exportText(session, roster) {
-      var L = [session.title, ""];
+    function exportText(session, roster, meta) {
+      meta = meta || {};
+      var L = [session.title];
+      if (meta.brand) L.push("Tyre brand: " + meta.brand);
+      if (meta.enteredBy) L.push("Entered by: " + meta.enteredBy);
+      if (meta.checkedBy) L.push("Checked by: " + meta.checkedBy);
+      L.push("");
       session.karts.slice().sort(kartSort).forEach(function (rec) {
         var e = findEntry(roster, rec.kart), flags = [];
-        var parts = ["Tyres " + (rec.tyres.map(function (t) { return t.code; }).join(", ") || "none")];
+        var tl = itemsOf(rec).filter(function (it) { return it.kind === "tyre"; }).map(function (it) { return (it.pos ? it.pos + " " : "") + it.code; });
+        var parts = [tl.join(", ") || "no tyres"];
         if (rec.chassis) parts.push("Chassis " + rec.chassis.code);
         if (rec.engine) parts.push("Engine " + rec.engine.code);
         itemsOf(rec).forEach(function (it) {
           var j = judge(roster, rec.kart, it.kind, it.code);
           if (j.state !== "ok" && j.state !== "nolist") flags.push(it.item + " " + it.code + ": " + j.text);
         });
-        L.push((e ? label(e) : "Kart " + rec.kart) + ": " + parts.join(" | "));
+        var sc = [rec.set ? "Set " + rec.set : "", rec.compound || ""].filter(Boolean).join(", ");
+        L.push((e ? label(e) : "Kart " + rec.kart) + (sc ? " (" + sc + ")" : "") + ": " + parts.join(" | "));
+        if (rec.remarks) L.push("  Remarks: " + rec.remarks);
         flags.forEach(function (f) { L.push("  ! " + f); });
       });
       return L.join("\n") + "\n";
@@ -1072,7 +1127,7 @@ ul.rows li:first-child { border-top: 0; }
     return {
       normCode: normCode, normKart: normKart, fitsShape: fitsShape, shapeText: shapeText, oneOff: oneOff, parseList: parseList,
       label: label, findEntry: findEntry, findOwner: findOwner, nearAll: nearAll, judge: judge, applyCorrection: applyCorrection,
-      route: route, itemsOf: itemsOf, exportCsv: exportCsv, exportText: exportText, rosterCsv: rosterCsv, kartSort: kartSort, SUBNAME: SUBNAME
+      route: route, itemsOf: itemsOf, exportCsv: exportCsv, exportText: exportText, rosterCsv: rosterCsv, kartSort: kartSort, SUBNAME: SUBNAME, POS: POS, POSNAME: POSNAME
     };
   })();
 
@@ -1087,9 +1142,12 @@ ul.rows li:first-child { border-top: 0; }
   var normCode = Core.normCode, normKart = Core.normKart;
 
   // store: everything that must survive a reload
-  var store = { v: 2, sessions: [], current: "", roster: [], corrections: [], format: DEFAULT_FORMAT };
+  var store = { v: 2, sessions: [], current: "", roster: [], corrections: [], format: DEFAULT_FORMAT, meta: { brand: "LEVANTO", enteredBy: "", checkedBy: "" } };
   // draft: the kart being scanned right now
-  var draft = { kart: "", tyres: [], chassis: null, engine: null };
+  var draft = { kart: "", tyres: [], chassis: null, engine: null, set: "", compound: "", remarks: "" };
+  var POS = Core.POS, POSNAME = Core.POSNAME;
+  function posIndex(t) { var i = POS.indexOf(t.pos); return i < 0 ? 9 : i; }
+  function freePos() { for (var i = 0; i < POS.length; i++) if (!draft.tyres.some(function (t) { return t.pos === POS[i]; })) return POS[i]; return ""; }
   var ui = { filter: "", checks: [] };
   var fmt = null;
 
@@ -1148,6 +1206,7 @@ ul.rows li:first-child { border-top: 0; }
       if (raw && raw.v === 2 && Array.isArray(raw.sessions)) {
         store = raw;
         store.roster = store.roster || []; store.corrections = store.corrections || []; store.format = store.format || DEFAULT_FORMAT;
+        store.meta = store.meta || { brand: "LEVANTO", enteredBy: "", checkedBy: "" };
       } else {
         // first run of this version: carry over the single list the earlier versions kept
         var old = JSON.parse(localStorage.getItem(OLD_LIST_KEY) || "[]");
@@ -1167,7 +1226,10 @@ ul.rows li:first-child { border-top: 0; }
     if (!session()) store.current = store.sessions[store.sessions.length - 1].id;
     try {
       var d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
-      if (d && Array.isArray(d.tyres)) draft = { kart: d.kart || "", tyres: d.tyres.slice(0, SET_SIZE), chassis: d.chassis || null, engine: d.engine || null };
+      if (d && Array.isArray(d.tyres)) {
+        draft = { kart: d.kart || "", tyres: d.tyres.slice(0, SET_SIZE), chassis: d.chassis || null, engine: d.engine || null, set: d.set || "", compound: d.compound || "", remarks: d.remarks || "" };
+        draft.tyres.forEach(function (t, i) { if (!t.pos) t.pos = POS[i]; });
+      }
     } catch (e) {}
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
     fmt = Code128.makeFormat(store.format);
@@ -1228,7 +1290,7 @@ ul.rows li:first-child { border-top: 0; }
       var code = normCode(t.code), j = code ? Core.judge(store.roster, kart, "tyre", code) : null;
       var fix = j && j.state === "near" ? '<button type="button" class="btn small" data-fix="tyre:' + i + '">Use scan, fix sheet</button>' : "";
       var blur = t.via === "blurred" && !(j && j.state === "ok") ? '<span class="tag warn">Blurred read, check it</span>' : "";
-      html += setRow(i + 1, "set-code-" + i, 'data-set-i="' + i + '"', t.code, "Tyre " + (i + 1) + " number", j, blur + fix, true, 'data-set-del="' + i + '"');
+      html += setRow(t.pos || i + 1, "set-code-" + i, 'data-set-i="' + i + '"', t.code, (POSNAME[t.pos] || "Tyre") + " number", j, blur + fix, true, 'data-set-del="' + i + '"');
     });
     ["chassis", "engine"].forEach(function (kind) {
       var v = draft[kind], code = v ? normCode(v.code) : "", j = code ? Core.judge(store.roster, kart, kind, code) : null;
@@ -1238,7 +1300,11 @@ ul.rows li:first-child { border-top: 0; }
     $("setList").innerHTML = html;
     var total = draftCount();
     $("setCount").textContent = total + " of 6";
-    var on = [n > 0, n > 1, n > 2, n > 3, !!draft.chassis, !!draft.engine];
+    var on = POS.map(function (p) { return draft.tyres.some(function (t) { return t.pos === p; }); }).concat([!!draft.chassis, !!draft.engine]);
+    [["setChips", draft.set], ["compChips", draft.compound]].forEach(function (c) {
+      Array.prototype.forEach.call($(c[0]).children, function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-v") === c[1] ? "true" : "false"); });
+    });
+    if ($("remarksInput").value !== draft.remarks) $("remarksInput").value = draft.remarks;
     [$("slots"), $("scanSlots")].forEach(function (box) { Array.prototype.forEach.call(box.children, function (s, i) { s.className = on[i] ? "on" : ""; }); });
     var full = total >= 6, scan = $("scanBtn"), save = $("saveBtn");
     scan.textContent = full ? "All 6 scanned" : total ? "Scan the rest" : "Scan kart";
@@ -1251,7 +1317,7 @@ ul.rows li:first-child { border-top: 0; }
 
   function recSummary(rec) {
     var f = flagsOf(rec);
-    return plural(rec.tyres.length, "tyre") + (rec.chassis ? " · chassis" : "") + (rec.engine ? " · engine" : "") +
+    return (rec.set ? "Set " + rec.set + " · " : "") + (rec.compound ? rec.compound + " · " : "") + plural(rec.tyres.length, "tyre") + (rec.chassis ? " · chassis" : "") + (rec.engine ? " · engine" : "") +
       (f ? ' <span class="tag bad">' + plural(f, "flag") + "</span>" : (store.roster.length ? ' <span class="tag ok">All match</span>' : ""));
   }
 
@@ -1271,9 +1337,10 @@ ul.rows li:first-child { border-top: 0; }
     });
     $("groups").innerHTML = recs.map(function (r) {
       return '<div class="group"><div class="group-head"><span class="n">' + esc(kartLabel(r.kart)) + '</span><span class="time">' + esc(hhmm(r.ts)) + "</span>" +
-        '<button type="button" class="btn small danger" data-del-kart="' + esc(r.kart) + '">Remove</button></div><ul class="rows">' +
+        '<button type="button" class="btn small danger" data-del-kart="' + esc(r.kart) + '">Remove</button></div>' +
+        '<span class="meta">' + esc([r.set ? "Set " + r.set : "No set", r.compound || "No compound", store.meta.brand].filter(Boolean).join(" · ")) + (r.remarks ? " · " + esc(r.remarks) : "") + '</span><ul class="rows">' +
         Core.itemsOf(r).map(function (it) {
-          return '<li><span class="what">' + (it.kind === "tyre" ? "T" + it.item.slice(5) : it.kind === "chassis" ? "CH" : "EN") + '</span><span class="tcode">' + esc(it.code) + "</span>" +
+          return '<li><span class="what">' + (it.kind === "tyre" ? (it.pos || "T") : it.kind === "chassis" ? "CH" : "EN") + '</span><span class="tcode">' + esc(it.code) + "</span>" +
             tagHtml(Core.judge(store.roster, r.kart, it.kind, it.code)) + (it.via === "blurred" ? '<span class="tag warn">Blurred</span>' : "") + "</li>";
         }).join("") + "</ul></div>";
     }).join("");
@@ -1296,6 +1363,7 @@ ul.rows li:first-child { border-top: 0; }
       return '<li><span class="kartno">' + esc(c.kart ? c.kart + " " + c.driver : c.driver) + '</span><span class="tcode">' + esc(c.kind) + ": " + esc(c.from) + " → " + esc(c.to) + '</span><span class="time">' + esc(hhmm(c.ts)) + "</span></li>";
     }).join("");
     $("formatInput").value = store.format;
+    $("brandInput").value = store.meta.brand || ""; $("enteredInput").value = store.meta.enteredBy || ""; $("checkedInput").value = store.meta.checkedBy || "";
   }
 
   // ---------- tabs ----------
@@ -1348,14 +1416,16 @@ ul.rows li:first-child { border-top: 0; }
     if (r.target === "tyre") {
       if (draft.tyres.some(function (t) { return normCode(t.code) === code; })) return { ok: false, dup: true, msg: code + " already scanned. Move to the next tyre." };
       if (draft.tyres.length >= SET_SIZE) return { ok: false, msg: "This kart already has 4 tyres. Remove one first, or switch to Chassis or Engine." };
-      draft.tyres.push({ code: code, via: via });
+      var pos = freePos();
+      draft.tyres.push({ code: code, via: via, pos: pos });
+      draft.tyres.sort(function (a, b) { return posIndex(a) - posIndex(b); });
     } else {
       if (draft[r.target] && normCode(draft[r.target].code) === code) return { ok: false, dup: true, msg: code + " already scanned as the " + r.target + "." };
       draft[r.target] = { code: code, via: via };
     }
     persistDraft(); renderSet();
     var j = Core.judge(store.roster, $("kartInput").value, r.target, code);
-    var what = r.target === "tyre" ? "Tyre " + draft.tyres.length : r.target === "chassis" ? "Chassis" : "Engine";
+    var what = r.target === "tyre" ? (POSNAME[pos] || "Tyre") : r.target === "chassis" ? "Chassis" : "Engine";
     return { ok: true, kind: r.target, flagged: j.state !== "ok" && j.state !== "nolist",
       msg: what + " " + code + (j.text ? ": " + j.text : " added") + "." + (via === "blurred" && j.state !== "ok" ? " Blurred read, check it." : "") + (r.note ? " " + r.note : "") };
   }
@@ -1401,20 +1471,32 @@ ul.rows li:first-child { border-top: 0; }
   });
   $("manualCode").addEventListener("keydown", function (e) { if (e.key === "Enter") $("manualAdd").click(); });
 
-  function clearDraft() { draft = { kart: "", tyres: [], chassis: null, engine: null }; $("kartInput").value = ""; persistDraft(); }
+  // set and compound carry over to the next kart, since a whole session usually runs the same ones
+  function clearDraft() { draft = { kart: "", tyres: [], chassis: null, engine: null, set: draft.set, compound: draft.compound, remarks: "" }; $("kartInput").value = ""; persistDraft(); }
+
+  function chipPick(boxId, field) {
+    $(boxId).addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      var v = b.getAttribute("data-v");
+      draft[field] = draft[field] === v ? "" : v;   // tap again to clear
+      persistDraft(); renderSet();
+    });
+  }
+  chipPick("setChips", "set"); chipPick("compChips", "compound");
+  $("remarksInput").addEventListener("input", function () { draft.remarks = this.value; persistDraft(); });
 
   $("resetBtn").addEventListener("click", async function () {
     if (await ask("Clear what's been scanned for this kart? Saved karts are not touched.", "Clear these")) {
-      draft.tyres = []; draft.chassis = null; draft.engine = null; persistDraft(); renderSet();
+      draft.tyres = []; draft.chassis = null; draft.engine = null; draft.remarks = ""; persistDraft(); renderSet();
     }
   });
 
   $("saveBtn").addEventListener("click", async function () {
     var text = $("kartInput").value, key = kartKey(text);
     if (!key) { toast("Enter the kart number first."); $("kartInput").focus(); return; }
-    var tyres = draft.tyres.map(function (t) { return { code: normCode(t.code), via: t.via || "" }; });
+    var tyres = draft.tyres.map(function (t) { return { code: normCode(t.code), via: t.via || "", pos: t.pos || "" }; });
     var blank = tyres.findIndex(function (t) { return t.code.length < 3; });
-    if (blank >= 0) { toast("Tyre " + (blank + 1) + " has no number. Type it or remove it."); var el = $("set-code-" + blank); if (el) el.focus(); return; }
+    if (blank >= 0) { toast((POSNAME[tyres[blank].pos] || "A tyre") + " has no number. Type it or remove it."); var el = $("set-code-" + blank); if (el) el.focus(); return; }
     var codes = tyres.map(function (t) { return t.code; });
     if (new Set(codes).size !== codes.length) { toast("The same tyre number is listed twice."); return; }
     var chassis = draft.chassis && normCode(draft.chassis.code) ? { code: normCode(draft.chassis.code), via: draft.chassis.via || "" } : null;
@@ -1427,7 +1509,7 @@ ul.rows li:first-child { border-top: 0; }
     if (missing.length && !(await ask(who + " is missing " + missing.join(", ").replace(/, ([^,]*)$/, " and $1") + ". Save anyway?", "Save anyway"))) return;
 
     var entry = Core.findEntry(store.roster, text);
-    var rec = { kart: key, driver: entry ? entry.driver : "", tyres: tyres, chassis: chassis, engine: engine, ts: Date.now() };
+    var rec = { kart: key, driver: entry ? entry.driver : "", tyres: tyres, chassis: chassis, engine: engine, set: draft.set || "", compound: draft.compound || "", remarks: (draft.remarks || "").trim(), ts: Date.now() };
     var flags = flagsOf(rec);
     if (flags && !(await ask(plural(flags, "item") + " on " + who + " " + (flags === 1 ? "doesn't" : "don't") + " match the distribution list. Save the record as scanned?", "Save as scanned"))) return;
 
@@ -1436,7 +1518,12 @@ ul.rows li:first-child { border-top: 0; }
       var a = await ask(who + " is already saved in " + s.title + ". Replace that record with this scan, or add this scan to it?", "Replace", "Add to it");
       if (a === false) return;
       if (a === "alt") {
-        existing.tyres.forEach(function (t) { if (codes.indexOf(t.code) < 0) rec.tyres.push(t); });
+        existing.tyres.forEach(function (t, i) {
+          if (codes.indexOf(t.code) >= 0) return;
+          var p = t.pos || POS[i] || "", taken = rec.tyres.some(function (x) { return x.pos === p; });
+          rec.tyres.push({ code: t.code, via: t.via || "", pos: taken ? "" : p });
+        });
+        rec.set = rec.set || existing.set || ""; rec.compound = rec.compound || existing.compound || ""; rec.remarks = rec.remarks || existing.remarks || "";
         rec.chassis = rec.chassis || existing.chassis; rec.engine = rec.engine || existing.engine;
       }
     }
@@ -1500,7 +1587,7 @@ ul.rows li:first-child { border-top: 0; }
     } catch (e) {}
   }
 
-  var MODEHINT = { tyre: "Point at a tyre sticker.", chassis: "Point at the chassis barcode.", engine: "Point at the engine seal barcode." };
+  var MODEHINT = { tyre: "Tyres go in order: front LH, front RH, rear LH, rear RH.", chassis: "Point at the chassis barcode.", engine: "Point at the engine seal barcode." };
   function setMode(m) {
     mode = m; cand = { code: "", n: 0 };
     Array.prototype.forEach.call($("modeSeg").children, function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-mode") === m ? "true" : "false"); });
@@ -1522,7 +1609,7 @@ ul.rows li:first-child { border-top: 0; }
     $("scanCount").textContent = draftCount() + " of 6";
   }
   function renderDebug() {
-    $("scanDbg").textContent = "decoder v6 · " + (video.videoWidth || 0) + "×" + (video.videoHeight || 0) + " · " + dbg.frames + " frames · last read: " + dbg.last + (dbg.err ? " · " + dbg.err : "");
+    $("scanDbg").textContent = "decoder v7 · " + (video.videoWidth || 0) + "×" + (video.videoHeight || 0) + " · " + dbg.frames + " frames · last read: " + dbg.last + (dbg.err ? " · " + dbg.err : "");
   }
   function flashGuide() { var g = $("guide"); g.classList.add("hit"); setTimeout(function () { g.classList.remove("hit"); }, 350); }
 
@@ -1561,7 +1648,7 @@ ul.rows li:first-child { border-top: 0; }
     // stay on the selector's choice while it still has something to do, otherwise move on
     var stay = (mode === "tyre" && draft.tyres.length < SET_SIZE) || (mode !== "tyre" && res.kind !== mode && !draft[mode]);
     if (!stay) setMode(nm);
-    $("scanMsg").textContent = res.msg + " Next: " + (mode === "tyre" ? "tyre " + (draft.tyres.length + 1) + " of 4" : mode) + ".";
+    $("scanMsg").textContent = res.msg + " Next: " + (mode === "tyre" ? (POSNAME[freePos()] || "tyre").toLowerCase().replace(/ (lh|rh)$/, function (m) { return m.toUpperCase(); }) : mode) + ".";
   }
 
   function tick() {
@@ -1735,7 +1822,7 @@ ul.rows li:first-child { border-top: 0; }
 
   function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "session"; }
   function fileName() { var d = new Date(); return slug(session().title) + "-" + d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + ".csv"; }
-  function sessionCsv() { return Core.exportCsv(session(), store.roster, store.corrections, Date.now()); }
+  function sessionCsv() { return Core.exportCsv(session(), store.roster, store.corrections, Date.now(), store.meta); }
   function saveFile(name, text) {
     var url = URL.createObjectURL(new Blob([text], { type: "text/csv" })), a = document.createElement("a");
     a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -1755,7 +1842,7 @@ ul.rows li:first-child { border-top: 0; }
   });
   $("copyBtn").addEventListener("click", function () {
     if (!session().karts.length) { toast("Nothing to copy in this session yet."); return; }
-    var text = Core.exportText(session(), store.roster);
+    var text = Core.exportText(session(), store.roster, store.meta);
     function fallback() {
       var ta = document.createElement("textarea");
       ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
@@ -1798,6 +1885,10 @@ ul.rows li:first-child { border-top: 0; }
     var v = normCode(this.value) || DEFAULT_FORMAT;
     store.format = v; fmt = Code128.makeFormat(v); persist(); renderAll();
     $("formatHint").textContent = fmt ? "Saved. Tyre numbers look like " + Core.shapeText(v) + "." : "That example can't be used.";
+  });
+
+  [["brandInput", "brand"], ["enteredInput", "enteredBy"], ["checkedInput", "checkedBy"]].forEach(function (f) {
+    $(f[0]).addEventListener("change", function () { store.meta[f[1]] = this.value.trim(); persist(); renderList(); });
   });
 
   // ---------- start ----------
